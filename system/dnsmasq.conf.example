@@ -8,6 +8,7 @@ address=/tommyq.cz/192.168.2.1
 address=/portainer.tommyq.cz/192.168.2.1
 address=/radarr.tommyq.cz/192.168.2.1
 address=/sonarr.tommyq.cz/192.168.2.1
+address=/lidarr.tommyq.cz/192.168.2.1
 address=/overseerr.tommyq.cz/192.168.2.1
 address=/prowlarr.tommyq.cz/192.168.2.1
 address=/filezilla.tommyq.cz/192.168.2.1
