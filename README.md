@@ -124,3 +124,11 @@ cd ~/Systém/tommyq-turris && ./deploy.sh
 ssh turris '/root/scripts/turris-mem-monitor.sh'
 ```
 
+### Bezpečný restart po aktualizaci
+
+```bash
+ssh turris '/root/scripts/safe-reboot.sh'
+```
+
+Tento skript vyčistí updater flagy před restartem, aby updater neinstaloval aktualizace znovu.
+
