@@ -25,7 +25,8 @@ Konfigurace a skripty pro Turris MOX router.
 │   ├── leo-trigger-turris-backup.sh # Trigger zálohy z Leo
 │   └── turris-mem-monitor.sh        # Monitoring paměti (RAM/SWAP)
 ├── system/
-│   └── dnsmasq.conf.example  # DNS konfigurace pro lokální resolvování
+│   ├── dnsmasq.conf.example  # DNS konfigurace pro lokální resolvování
+│   └── no-foris.lua          # Updater config - vypnutí Foris webového rozhraní
 └── docs/
     └── setup.md              # Dokumentace nastavení
 ```
@@ -41,6 +42,7 @@ Konfigurace a skripty pro Turris MOX router.
 Nasadí:
 - Lighttpd konfigurace
 - Skripty do `/root/scripts/`
+- System konfigurace (updater)
 - CA certifikát (pokud chybí)
 - Ověří běžící služby
 

@@ -34,8 +34,15 @@ scp "$SCRIPT_DIR/www/index.html" "$TURRIS_HOST:/www/tommyq/"
 echo "  ✓ Dashboard deployed"
 echo ""
 
-# 4. Deploy CA certificate
-echo "4. Checking CA certificate..."
+# 4. Deploy system configs
+echo "4. Deploying system configurations..."
+ssh "$TURRIS_HOST" "mkdir -p /etc/updater/conf.d"
+scp "$SCRIPT_DIR/system/no-foris.lua" "$TURRIS_HOST:/etc/updater/conf.d/"
+echo "  ✓ Updater config deployed"
+echo ""
+
+# 5. Deploy CA certificate
+echo "5. Checking CA certificate..."
 if ! ssh "$TURRIS_HOST" "test -f /www/ca.crt"; then
     echo "  Downloading Cloudflare Origin CA..."
     ssh "$TURRIS_HOST" "curl -fsSL https://developers.cloudflare.com/ssl/static/origin_ca_rsa_root.pem -o /www/ca.crt"
@@ -45,8 +52,8 @@ else
 fi
 echo ""
 
-# 5. Verify services
-echo "5. Verifying services..."
+# 6. Verify services
+echo "6. Verifying services..."
 echo -n "  Lighttpd: "
 ssh "$TURRIS_HOST" "/etc/init.d/lighttpd status" && echo "✓ running" || echo "✗ not running"
 
