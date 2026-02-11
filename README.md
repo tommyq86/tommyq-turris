@@ -30,7 +30,19 @@ Konfigurace a skripty pro Turris MOX router.
 
 ## Nasazení
 
-### Lighttpd konfigurace
+### Kompletní deployment
+
+```bash
+./deploy.sh [root@turris]
+```
+
+Nasadí:
+- Lighttpd konfigurace
+- Skripty do `/root/scripts/`
+- CA certifikát (pokud chybí)
+- Ověří běžící služby
+
+### Pouze lighttpd konfigurace
 
 ```bash
 cd lighttpd
@@ -39,7 +51,7 @@ cd lighttpd
 
 ### Skripty
 
-Skripty se nasazují ručně podle potřeby na Turris nebo Leo.
+Skripty se nasazují přes hlavní `deploy.sh` nebo ručně podle potřeby.
 
 ## Související repozitáře
 
