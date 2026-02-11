@@ -25,11 +25,13 @@ Konfigurace a skripty pro Turris MOX router.
 │   ├── leo-trigger-turris-backup.sh # Trigger zálohy z Leo
 │   └── turris-mem-monitor.sh        # Monitoring paměti (RAM/SWAP)
 ├── system/
-│   ├── dnsmasq.conf.example  # DNS konfigurace pro lokální resolvování
+│   ├── dnsmasq.conf.example  # DNS konfigurace (reference - skutečná konfigurace je v UCI)
 │   └── no-foris.lua          # Updater config - vypnutí Foris webového rozhraní
 └── docs/
     └── setup.md              # Dokumentace nastavení
 ```
+
+**Poznámka:** DNS konfigurace je spravována přes UCI (`uci show dhcp`), soubor `dnsmasq.conf.example` slouží pouze jako reference.
 
 ## Nasazení
 
