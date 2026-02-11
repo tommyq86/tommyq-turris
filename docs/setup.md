@@ -11,6 +11,8 @@ cd lighttpd
 ./deploy.sh
 ```
 
+**Důležité:** Soubor `49-tommyq-no-auth.conf` vypíná Turris autentizaci pro `*.tommyq.cz` domény, aby služby měly vlastní přihlášení.
+
 ### 2. DNS konfigurace
 
 V Turris webovém rozhraní (reForis nebo LuCI):
