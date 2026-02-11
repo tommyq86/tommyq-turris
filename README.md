@@ -92,3 +92,35 @@ sudo install-tommyq-cert  # z tommyq-bash
 Install-TommyqCertificate  # z tommyq-pwsh
 ```
 
+## Údržba
+
+### TurrisOS Update
+
+**PŘED aktualizací:**
+```bash
+ssh turris '/root/scripts/pre-update-backup.sh'
+```
+
+**PO aktualizaci:**
+```bash
+ssh turris '/root/scripts/post-update-restore.sh'
+# Pokud chybí konfigurace, z Leo:
+cd ~/Systém/tommyq-turris && ./deploy.sh
+```
+
+### Záloha konfigurace
+
+```bash
+# Na Turrisu
+/root/scripts/turris-backup.sh
+
+# Trigger z Leo (cron)
+~/Systém/tommyq-turris/scripts/leo-trigger-turris-backup.sh
+```
+
+### Monitoring paměti
+
+```bash
+ssh turris '/root/scripts/turris-mem-monitor.sh'
+```
+
