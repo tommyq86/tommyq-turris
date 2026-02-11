@@ -17,6 +17,8 @@ Konfigurace a skripty pro Turris MOX router.
 │   │   ├── 99-tommyq-plex.conf      # Plex Media Server
 │   │   └── 99-tommyq-smarthome.conf # SmartHome webhook
 │   └── deploy.sh             # Skript pro nasazení konfigurace
+├── www/
+│   └── index.html            # Dashboard služeb (tommyq.cz)
 ├── scripts/
 │   ├── restore-assistant.sh         # Restore assistant po TurrisOS update
 │   ├── turris-backup.sh             # Záloha Turris na Synology NAS

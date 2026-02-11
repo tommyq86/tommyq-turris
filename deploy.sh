@@ -27,8 +27,15 @@ for script in "$SCRIPT_DIR/scripts"/*.sh; do
 done
 echo ""
 
-# 3. Deploy CA certificate
-echo "3. Checking CA certificate..."
+# 3. Deploy dashboard
+echo "3. Deploying dashboard..."
+ssh "$TURRIS_HOST" "mkdir -p /www/tommyq"
+scp "$SCRIPT_DIR/www/index.html" "$TURRIS_HOST:/www/tommyq/"
+echo "  ✓ Dashboard deployed"
+echo ""
+
+# 4. Deploy CA certificate
+echo "4. Checking CA certificate..."
 if ! ssh "$TURRIS_HOST" "test -f /www/ca.crt"; then
     echo "  Downloading Cloudflare Origin CA..."
     ssh "$TURRIS_HOST" "curl -fsSL https://developers.cloudflare.com/ssl/static/origin_ca_rsa_root.pem -o /www/ca.crt"
@@ -38,8 +45,8 @@ else
 fi
 echo ""
 
-# 4. Verify services
-echo "4. Verifying services..."
+# 5. Verify services
+echo "5. Verifying services..."
 echo -n "  Lighttpd: "
 ssh "$TURRIS_HOST" "/etc/init.d/lighttpd status" && echo "✓ running" || echo "✗ not running"
 
