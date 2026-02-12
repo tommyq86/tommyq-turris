@@ -1,138 +1,137 @@
 # tommyq-turris
 
-Konfigurace a skripty pro Turris MOX router.
+Configuration and scripts for Turris MOX router.
 
-## Struktura
+## Structure
 
 ```
 ├── lighttpd/
-│   ├── configs/              # Lighttpd reverse proxy konfigurace
-│   │   ├── 99-ca-cert.conf          # CA certifikát download
-│   │   ├── 99-tommyq-base.conf      # Base doména + HTTP redirect
-│   │   ├── 99-tommyq-services.conf  # Standardní služby (Portainer, *arr, qBittorrent)
+│   ├── configs/              # Lighttpd reverse proxy configuration
+│   │   ├── 99-ca-cert.conf          # CA certificate download
+│   │   ├── 99-tommyq-base.conf      # Base domain + HTTP redirect
+│   │   ├── 99-tommyq-services.conf  # Standard services (Portainer, *arr, qBittorrent)
 │   │   ├── 99-tommyq-filezilla.conf # FileZilla (KasmVNC + WebSocket)
 │   │   ├── 99-tommyq-jdownloader.conf # JDownloader
 │   │   ├── 99-tommyq-download.conf  # Synology Download Station
 │   │   ├── 99-tommyq-dsm.conf       # Synology DSM
 │   │   ├── 99-tommyq-plex.conf      # Plex Media Server
 │   │   └── 99-tommyq-smarthome.conf # SmartHome webhook
-│   └── deploy.sh             # Skript pro nasazení konfigurace
+│   └── deploy.sh             # Deployment script
 ├── www/
-│   └── index.html            # Dashboard služeb (tommyq.cz)
+│   └── index.html            # Services dashboard
 ├── scripts/
-│   ├── restore-assistant.sh         # Restore assistant po TurrisOS update
-│   ├── turris-backup.sh             # Záloha Turris na Synology NAS
-│   ├── leo-trigger-turris-backup.sh # Trigger zálohy z Leo
-│   └── turris-mem-monitor.sh        # Monitoring paměti (RAM/SWAP)
+│   ├── restore-assistant.sh         # Restore assistant after TurrisOS update
+│   ├── turris-backup.sh             # Backup Turris to Synology NAS
+│   ├── leo-trigger-turris-backup.sh # Trigger backup from Leo
+│   └── turris-mem-monitor.sh        # Memory monitoring (RAM/SWAP)
 ├── system/
-│   ├── dnsmasq.conf.example  # DNS konfigurace (reference - skutečná konfigurace je v UCI)
-│   └── no-foris.lua          # Updater config - vypnutí Foris webového rozhraní
+│   ├── dnsmasq.conf.example  # DNS configuration (reference - actual config is in UCI)
+│   └── no-foris.lua          # Updater config - disable Foris web interface
 └── docs/
-    └── setup.md              # Dokumentace nastavení
+    └── setup.md              # Setup documentation
 ```
 
-**Poznámka:** DNS konfigurace je spravována přes UCI (`uci show dhcp`), soubor `dnsmasq.conf.example` slouží pouze jako reference.
+**Note:** DNS configuration is managed via UCI (`uci show dhcp`), the `dnsmasq.conf.example` file serves only as a reference.
 
-## Nasazení
+## Deployment
 
-### Kompletní deployment
+### Complete deployment
 
 ```bash
 ./deploy.sh [root@turris]
 ```
 
-Nasadí:
-- Lighttpd konfigurace
-- Skripty do `/root/scripts/`
-- System konfigurace (updater)
-- CA certifikát (pokud chybí)
-- Ověří běžící služby
+Deploys:
+- Lighttpd configuration
+- Scripts to `/root/scripts/`
+- System configuration (updater)
+- CA certificate (if missing)
+- Verifies running services
 
-### Pouze lighttpd konfigurace
+### Lighttpd configuration only
 
 ```bash
 cd lighttpd
 ./deploy.sh [root@turris]
 ```
 
-### Skripty
+### Scripts
 
-Skripty se nasazují přes hlavní `deploy.sh` nebo ručně podle potřeby.
+Scripts are deployed via main `deploy.sh` or manually as needed.
 
-## Související repozitáře
+## Related Repositories
 
-- [tommyq-assistant](https://github.com/tommyq86/tommyq-assistant) - SmartHome assistant služba
-- [tommyq-bash](https://github.com/tommyq86/tommyq-bash) - Univerzální bash skripty
-- [tommyq-python](https://github.com/tommyq86/tommyq-python) - Python utility
+- [tommyq-assistant](https://github.com/tommyq86/tommyq-assistant) - SmartHome assistant service
+- [tommyq-bash](https://github.com/tommyq86/tommyq-bash) - Universal bash scripts
+- [tommyq-python](https://github.com/tommyq86/tommyq-python) - Python utilities
 
-## Služby
+## Services
 
-Všechny služby jsou dostupné přes HTTPS s Cloudflare Origin CA certifikátem:
+All services are available via HTTPS with Cloudflare Origin CA certificate:
 
-- `https://tommyq.cz` - Dashboard služeb
-- `https://portainer.tommyq.cz` - Docker management
-- `https://radarr.tommyq.cz` - Filmy
-- `https://sonarr.tommyq.cz` - Seriály
-- `https://overseerr.tommyq.cz` - Media requests
-- `https://prowlarr.tommyq.cz` - Indexer management
-- `https://filezilla.tommyq.cz` - FTP client (KasmVNC)
-- `https://jdownloader.tommyq.cz` - Download manager
-- `https://qbittorrent.tommyq.cz` - Torrent client
-- `https://plex.tommyq.cz` - Media server
-- `https://dsm.tommyq.cz` - Synology DSM
+- `https://example.com` - Services dashboard
+- `https://portainer.example.com` - Docker management
+- `https://radarr.example.com` - Movies
+- `https://sonarr.example.com` - TV Shows
+- `https://overseerr.example.com` - Media requests
+- `https://prowlarr.example.com` - Indexer management
+- `https://filezilla.example.com` - FTP client (KasmVNC)
+- `https://jdownloader.example.com` - Download manager
+- `https://qbittorrent.example.com` - Torrent client
+- `https://plex.example.com` - Media server
+- `https://dsm.example.com` - Synology DSM
 
-## CA Certifikát
+## CA Certificate
 
-Cloudflare Origin CA certifikát je dostupný na:
-- `http://192.168.2.1/ca.crt`
-- `http://tommyq.cz/ca.crt` (s lokálním DNS)
+Cloudflare Origin CA certificate is available at:
+- `http://192.168.1.1/ca.crt`
+- `http://router.local/ca.crt` (with local DNS)
 
-Instalace na klientech:
+Installation on clients:
 ```bash
 # Linux
-sudo install-tommyq-cert  # z tommyq-bash
+sudo install-cert  # from tommyq-bash
 
 # Windows
-Install-TommyqCertificate  # z tommyq-pwsh
+Install-Certificate  # from tommyq-pwsh
 ```
 
-## Údržba
+## Maintenance
 
 ### TurrisOS Update
 
-**PŘED aktualizací:**
+**BEFORE update:**
 ```bash
 ssh turris '/root/scripts/pre-update-backup.sh'
 ```
 
-**PO aktualizaci:**
+**AFTER update:**
 ```bash
 ssh turris '/root/scripts/post-update-restore.sh'
-# Pokud chybí konfigurace, z Leo:
-cd ~/Systém/tommyq-turris && ./deploy.sh
+# If configuration is missing, from Leo:
+cd ~/Scripts/tommyq-turris && ./deploy.sh
 ```
 
-### Záloha konfigurace
+### Configuration Backup
 
 ```bash
-# Na Turrisu
+# On Turris
 /root/scripts/turris-backup.sh
 
-# Trigger z Leo (cron)
-~/Systém/tommyq-turris/scripts/leo-trigger-turris-backup.sh
+# Trigger from Leo (cron)
+~/Scripts/tommyq-turris/scripts/leo-trigger-turris-backup.sh
 ```
 
-### Monitoring paměti
+### Memory Monitoring
 
 ```bash
 ssh turris '/root/scripts/turris-mem-monitor.sh'
 ```
 
-### Bezpečný restart po aktualizaci
+### Safe Reboot After Update
 
 ```bash
 ssh turris '/root/scripts/safe-reboot.sh'
 ```
 
-Tento skript vyčistí updater flagy před restartem, aby updater neinstaloval aktualizace znovu.
-
+This script clears updater flags before reboot to prevent the updater from reinstalling updates.
