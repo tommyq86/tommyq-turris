@@ -1,6 +1,40 @@
 #!/bin/sh
 # Turris MOX Backup Script
 
+# Help
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    if echo "$LANG" | grep -q "^cs"; then
+        cat << EOF
+$(basename "$0") - Zálohuje Turris router na Leo NAS
+
+Použití:
+    $(basename "$0") [volby]
+
+Volby:
+    -h, --help    Zobrazí tuto nápovědu
+
+Popis:
+    Zálohuje systém, konfiguraci, SSH klíče, assistant a logy
+    Uchovává 7 posledních záloh
+EOF
+    else
+        cat << EOF
+$(basename "$0") - Backs up Turris router to Leo NAS
+
+Usage:
+    $(basename "$0") [options]
+
+Options:
+    -h, --help    Show this help message
+
+Description:
+    Backs up system, config, SSH keys, assistant and logs
+    Keeps last 7 backups
+EOF
+    fi
+    exit 0
+fi
+
 BACKUP_DIR="/var/services/homes/tommyq/turris-backup"
 DATE=$(date +%Y%m%d_%H%M%S)
 

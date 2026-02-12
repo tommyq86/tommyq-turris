@@ -3,6 +3,46 @@
 
 set -e
 
+# Help
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+    if [[ "$LANG" =~ ^cs ]]; then
+        cat << EOF
+$(basename "$0") - Nasadí konfiguraci a skripty na Turris router
+
+Použití:
+    $(basename "$0") [host] [volby]
+
+Argumenty:
+    host          SSH host (výchozí: root@turris)
+
+Volby:
+    -h, --help    Zobrazí tuto nápovědu
+
+Popis:
+    Nasadí lighttpd konfigurace, skripty, dashboard, systémové
+    konfigurace a CA certifikát na Turris router
+EOF
+    else
+        cat << EOF
+$(basename "$0") - Deploys configuration and scripts to Turris router
+
+Usage:
+    $(basename "$0") [host] [options]
+
+Arguments:
+    host          SSH host (default: root@turris)
+
+Options:
+    -h, --help    Show this help message
+
+Description:
+    Deploys lighttpd configs, scripts, dashboard, system
+    configs and CA certificate to Turris router
+EOF
+    fi
+    exit 0
+fi
+
 TURRIS_HOST="${1:-root@turris}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

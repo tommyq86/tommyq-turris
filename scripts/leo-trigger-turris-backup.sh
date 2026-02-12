@@ -2,16 +2,33 @@
 
 # Help
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
-    cat << EOF
-$(basename "$0")
+    if [[ "$LANG" =~ ^cs ]]; then
+        cat << EOF
+$(basename "$0") - Spouští backup Turris routeru z Leo NAS
 
 Použití:
-    $(basename "$0") [options]
+    $(basename "$0") [volby]
 
 Volby:
     -h, --help    Zobrazí tuto nápovědu
 
+Popis:
+    Spouští backup max 2x měsíčně (min 14 dní mezi zálohy)
 EOF
+    else
+        cat << EOF
+$(basename "$0") - Triggers Turris router backup from Leo NAS
+
+Usage:
+    $(basename "$0") [options]
+
+Options:
+    -h, --help    Show this help message
+
+Description:
+    Runs backup max 2x per month (min 14 days between backups)
+EOF
+    fi
     exit 0
 fi
 

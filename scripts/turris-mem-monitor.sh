@@ -5,22 +5,47 @@
 # Usage: memory-monitor.sh [--help]
 
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
-    echo "Memory Monitor - Turris memory usage monitoring"
-    echo ""
-    echo "Usage: memory-monitor.sh [OPTIONS]"
-    echo ""
-    echo "Options:"
-    echo "  -h, --help    Show this help message"
-    echo ""
-    echo "Thresholds:"
-    echo "  RAM:  85%"
-    echo "  SWAP: 90% (monitoring only, no notifications)"
-    echo ""
-    echo "Actions on high RAM usage:"
-    echo "  - Kill duplicate foris-controller processes"
-    echo "  - Clear system caches"
-    echo "  - Restart kresd if needed"
-    echo "  - Send notification"
+    if echo "$LANG" | grep -q "^cs"; then
+        cat << EOF
+$(basename "$0") - Monitoruje využití paměti na Turris routeru
+
+Použití:
+    $(basename "$0") [volby]
+
+Volby:
+    -h, --help    Zobrazí tuto nápovědu
+
+Prahy:
+    RAM:  85%
+    SWAP: 90% (pouze monitoring, bez notifikací)
+
+Akce při vysokém využití RAM:
+    - Ukončí duplicitní foris-controller procesy
+    - Vyčistí systémové cache
+    - Restartuje kresd pokud je potřeba
+    - Odešle notifikaci
+EOF
+    else
+        cat << EOF
+$(basename "$0") - Monitors memory usage on Turris router
+
+Usage:
+    $(basename "$0") [options]
+
+Options:
+    -h, --help    Show this help message
+
+Thresholds:
+    RAM:  85%
+    SWAP: 90% (monitoring only, no notifications)
+
+Actions on high RAM usage:
+    - Kill duplicate foris-controller processes
+    - Clear system caches
+    - Restart kresd if needed
+    - Send notification
+EOF
+    fi
     exit 0
 fi
 

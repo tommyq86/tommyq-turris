@@ -2,6 +2,40 @@
 # Post-update restore script for Turris
 # Run this AFTER TurrisOS update
 
+# Help
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    if echo "$LANG" | grep -q "^cs"; then
+        cat << EOF
+$(basename "$0") - Kontrola a obnova po aktualizaci TurrisOS
+
+Použití:
+    $(basename "$0") [volby]
+
+Volby:
+    -h, --help    Zobrazí tuto nápovědu
+
+Popis:
+    Spusť PO aktualizaci TurrisOS
+    Zkontroluje a obnoví služby, konfigurace a certifikáty
+EOF
+    else
+        cat << EOF
+$(basename "$0") - Check and restore after TurrisOS update
+
+Usage:
+    $(basename "$0") [options]
+
+Options:
+    -h, --help    Show this help message
+
+Description:
+    Run AFTER TurrisOS update
+    Checks and restores services, configs and certificates
+EOF
+    fi
+    exit 0
+fi
+
 echo "=== Post-Update Restore ==="
 
 # Restore assistant service
