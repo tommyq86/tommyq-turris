@@ -2,17 +2,17 @@
 # Add these entries to Turris dnsmasq configuration
 
 # Base domain
-address=/tommyq.cz/192.168.2.1
+address=/example.com/192.168.1.1
 
 # Services
-address=/portainer.tommyq.cz/192.168.2.1
-address=/radarr.tommyq.cz/192.168.2.1
-address=/sonarr.tommyq.cz/192.168.2.1
-address=/lidarr.tommyq.cz/192.168.2.1
-address=/overseerr.tommyq.cz/192.168.2.1
-address=/prowlarr.tommyq.cz/192.168.2.1
-address=/filezilla.tommyq.cz/192.168.2.1
-address=/jdownloader.tommyq.cz/192.168.2.1
-address=/qbittorrent.tommyq.cz/192.168.2.1
-address=/plex.tommyq.cz/192.168.2.1
-address=/dsm.tommyq.cz/192.168.2.1
+address=/portainer.example.com/192.168.1.1
+address=/radarr.example.com/192.168.1.1
+address=/sonarr.example.com/192.168.1.1
+address=/lidarr.example.com/192.168.1.1
+address=/overseerr.example.com/192.168.1.1
+address=/prowlarr.example.com/192.168.1.1
+address=/filezilla.example.com/192.168.1.1
+address=/jdownloader.example.com/192.168.1.1
+address=/qbittorrent.example.com/192.168.1.1
+address=/plex.example.com/192.168.1.1
+address=/dsm.example.com/192.168.1.1
