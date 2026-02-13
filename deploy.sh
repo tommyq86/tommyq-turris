@@ -50,14 +50,27 @@ echo "=== Turris Deployment ==="
 echo "Target: $TURRIS_HOST"
 echo ""
 
-# 1. Deploy lighttpd configs
-echo "1. Deploying lighttpd configurations..."
+# 1. Install required lighttpd modules
+echo "1. Installing required lighttpd modules..."
+ssh "$TURRIS_HOST" "opkg list-installed | grep -q lighttpd-mod-proxy || opkg install lighttpd-mod-proxy"
+ssh "$TURRIS_HOST" "opkg list-installed | grep -q lighttpd-mod-redirect || opkg install lighttpd-mod-redirect"
+echo "  ✓ Modules installed"
+echo ""
+
+# 2. Disable conflicting Turris configs
+echo "2. Disabling conflicting Turris configs..."
+ssh "$TURRIS_HOST" "cd /etc/lighttpd/conf.d && for f in 50-turris-auth.conf 80-*.conf; do [ -f \$f ] && [ ! -f \$f.disabled ] && mv \$f \$f.disabled; done || true"
+echo "  ✓ Conflicts resolved"
+echo ""
+
+# 3. Deploy lighttpd configs
+echo "3. Deploying lighttpd configurations..."
 cd "$SCRIPT_DIR/lighttpd"
 ./deploy.sh "$TURRIS_HOST"
 echo ""
 
-# 2. Deploy scripts
-echo "2. Deploying scripts..."
+# 4. Deploy scripts
+echo "4. Deploying scripts..."
 ssh "$TURRIS_HOST" "mkdir -p /root/scripts"
 for script in "$SCRIPT_DIR/scripts"/*.sh; do
     filename=$(basename "$script")
@@ -67,22 +80,22 @@ for script in "$SCRIPT_DIR/scripts"/*.sh; do
 done
 echo ""
 
-# 3. Deploy dashboard
-echo "3. Deploying dashboard..."
+# 5. Deploy dashboard
+echo "5. Deploying dashboard..."
 ssh "$TURRIS_HOST" "mkdir -p /www/tommyq"
 scp "$SCRIPT_DIR/www/index.html" "$TURRIS_HOST:/www/tommyq/"
 echo "  ✓ Dashboard deployed"
 echo ""
 
-# 4. Deploy system configs
-echo "4. Deploying system configurations..."
+# 6. Deploy system configs
+echo "6. Deploying system configurations..."
 ssh "$TURRIS_HOST" "mkdir -p /etc/updater/conf.d"
 scp "$SCRIPT_DIR/system/no-foris.lua" "$TURRIS_HOST:/etc/updater/conf.d/"
 echo "  ✓ Updater config deployed"
 echo ""
 
-# 5. Deploy CA certificate
-echo "5. Checking CA certificate..."
+# 7. Deploy CA certificate
+echo "7. Checking CA certificate..."
 if ! ssh "$TURRIS_HOST" "test -f /www/ca.crt"; then
     echo "  Downloading Cloudflare Origin CA..."
     ssh "$TURRIS_HOST" "curl -fsSL https://developers.cloudflare.com/ssl/static/origin_ca_rsa_root.pem -o /www/ca.crt"
@@ -92,8 +105,14 @@ else
 fi
 echo ""
 
-# 6. Verify services
-echo "6. Verifying services..."
+# 8. Enable and restart lighttpd
+echo "8. Enabling and restarting lighttpd..."
+ssh "$TURRIS_HOST" "/etc/init.d/lighttpd enable && /etc/init.d/lighttpd restart"
+echo "  ✓ Lighttpd restarted"
+echo ""
+
+# 9. Verify services
+echo "9. Verifying services..."
 echo -n "  Lighttpd: "
 ssh "$TURRIS_HOST" "/etc/init.d/lighttpd status" && echo "✓ running" || echo "✗ not running"
 
