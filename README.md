@@ -2,6 +2,14 @@
 
 Configuration and scripts for Turris MOX router.
 
+## Quick Links
+
+- [Setup Documentation](docs/setup.md)
+- [Lighttpd Configuration](lighttpd/)
+- [Scripts](scripts/)
+- [System Configuration](system/)
+- [Web Dashboard](www/)
+
 ## Structure
 
 ```
