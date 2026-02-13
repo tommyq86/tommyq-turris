@@ -8,7 +8,10 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; padding: 2rem; }
         h1 { text-align: center; margin-bottom: 3rem; font-size: 2rem; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.5rem; max-width: 1200px; margin: 0 auto; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .category { margin-bottom: 3rem; }
+        .category h2 { font-size: 1.25rem; margin-bottom: 1rem; color: #94a3b8; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.5rem; }
         .service { background: #1e293b; border-radius: 12px; padding: 1.5rem; text-align: center; text-decoration: none; color: inherit; transition: transform 0.2s, background 0.2s; display: flex; flex-direction: column; align-items: center; }
         .service:hover { transform: translateY(-4px); background: #334155; }
         .icon { width: 48px; height: 48px; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: center; }
@@ -18,51 +21,68 @@
 </head>
 <body>
     <h1>🏠 tommyq services</h1>
-    <div class="grid">
-        <a href="https://portainer.tommyq.cz" class="service">
-            <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/portainer.png" alt="Portainer"></div>
-            <div class="name">Portainer</div>
-        </a>
-        <a href="https://radarr.tommyq.cz" class="service">
-            <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/radarr.png" alt="Radarr"></div>
-            <div class="name">Radarr</div>
-        </a>
-        <a href="https://sonarr.tommyq.cz" class="service">
-            <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/sonarr.png" alt="Sonarr"></div>
-            <div class="name">Sonarr</div>
-        </a>
-        <a href="https://overseerr.tommyq.cz" class="service">
-            <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/overseerr.png" alt="Overseerr"></div>
-            <div class="name">Overseerr</div>
-        </a>
-        <a href="https://prowlarr.tommyq.cz" class="service">
-            <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/prowlarr.png" alt="Prowlarr"></div>
-            <div class="name">Prowlarr</div>
-        </a>
-        <a href="https://lidarr.tommyq.cz" class="service">
-            <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/lidarr.png" alt="Lidarr"></div>
-            <div class="name">Lidarr</div>
-        </a>
-        <a href="https://filezilla.tommyq.cz" class="service">
-            <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/filezilla.png" alt="FileZilla"></div>
-            <div class="name">FileZilla</div>
-        </a>
-        <a href="https://jdownloader.tommyq.cz" class="service">
-            <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/jdownloader.png" alt="JDownloader"></div>
-            <div class="name">JDownloader</div>
-        </a>
-        <a href="https://download.tommyq.cz" class="service">
-            <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/synology-download-station.png" alt="Download Station"></div>
-            <div class="name">Download Station</div>
-        </a>
-        <a href="https://dsm.tommyq.cz" class="service">
-            <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/synology-dsm.png" alt="DSM"></div>
-            <div class="name">DSM</div>
-        </a>
-        <a href="https://qbittorrent.tommyq.cz" class="service">
-            <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/qbittorrent.png" alt="qBittorrent"></div>
-            <div class="name">qBittorrent</div>
-        </a>
+    <div class="container">
+        <div class="category">
+            <h2>📦 Management</h2>
+            <div class="grid">
+                <a href="https://portainer.tommyq.cz" class="service">
+                    <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/portainer.png" alt="Portainer"></div>
+                    <div class="name">Portainer</div>
+                </a>
+                <a href="https://dsm.tommyq.cz" class="service">
+                    <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/synology-dsm.png" alt="DSM"></div>
+                    <div class="name">DSM</div>
+                </a>
+            </div>
+        </div>
+
+        <div class="category">
+            <h2>🎬 Media</h2>
+            <div class="grid">
+                <a href="https://radarr.tommyq.cz" class="service">
+                    <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/radarr.png" alt="Radarr"></div>
+                    <div class="name">Radarr</div>
+                </a>
+                <a href="https://sonarr.tommyq.cz" class="service">
+                    <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/sonarr.png" alt="Sonarr"></div>
+                    <div class="name">Sonarr</div>
+                </a>
+                <a href="https://lidarr.tommyq.cz" class="service">
+                    <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/lidarr.png" alt="Lidarr"></div>
+                    <div class="name">Lidarr</div>
+                </a>
+                <a href="https://overseerr.tommyq.cz" class="service">
+                    <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/overseerr.png" alt="Overseerr"></div>
+                    <div class="name">Overseerr</div>
+                </a>
+                <a href="https://prowlarr.tommyq.cz" class="service">
+                    <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/prowlarr.png" alt="Prowlarr"></div>
+                    <div class="name">Prowlarr</div>
+                </a>
+            </div>
+        </div>
+
+        <div class="category">
+            <h2>⬇️ Downloads</h2>
+            <div class="grid">
+                <a href="https://qbittorrent.tommyq.cz" class="service">
+                    <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/qbittorrent.png" alt="qBittorrent"></div>
+                    <div class="name">qBittorrent</div>
+                </a>
+                <a href="https://jdownloader.tommyq.cz" class="service">
+                    <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/jdownloader.png" alt="JDownloader"></div>
+                    <div class="name">JDownloader</div>
+                </a>
+                <a href="https://download.tommyq.cz" class="service">
+                    <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/synology-download-station.png" alt="Download Station"></div>
+                    <div class="name">Download Station</div>
+                </a>
+                <a href="https://filezilla.tommyq.cz" class="service">
+                    <div class="icon"><img src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/filezilla.png" alt="FileZilla"></div>
+                    <div class="name">FileZilla</div>
+                </a>
+            </div>
+        </div>
     </div>
 </body>
 </html>
