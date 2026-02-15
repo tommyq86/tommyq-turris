@@ -33,13 +33,14 @@ Configuration and scripts for Turris MOX router.
 │   ├── leo-trigger-turris-backup.sh # Trigger backup from Leo
 │   └── turris-mem-monitor.sh        # Memory monitoring (RAM/SWAP)
 ├── system/
-│   ├── dnsmasq.conf.example  # DNS configuration (reference - actual config is in UCI)
+│   ├── kresd-custom.conf     # Knot Resolver - local domain overrides
+│   ├── dnsmasq.conf.example  # DNS configuration (legacy reference)
 │   └── no-foris.lua          # Updater config - disable Foris web interface
 └── docs/
     └── setup.md              # Setup documentation
 ```
 
-**Note:** DNS configuration is managed via UCI (`uci show dhcp`), the `dnsmasq.conf.example` file serves only as a reference.
+**Note:** DNS configuration is managed via Knot Resolver (`/etc/kresd/custom.conf`). Local domains (`*.tommyq.cz`) resolve to `192.168.2.1`. The `dnsmasq.conf.example` file is a legacy reference.
 
 ## Deployment
 
@@ -52,8 +53,9 @@ Configuration and scripts for Turris MOX router.
 Deploys:
 - Lighttpd configuration
 - Scripts to `/root/scripts/`
-- System configuration (updater)
+- System configuration (updater, Knot Resolver)
 - CA certificate (if missing)
+- Cleans up legacy UCI domain entries
 - Verifies running services
 
 ### Lighttpd configuration only

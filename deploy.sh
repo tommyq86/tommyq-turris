@@ -90,9 +90,20 @@ echo ""
 
 # 6. Deploy system configs
 echo "6. Deploying system configurations..."
-ssh "$TURRIS_HOST" "mkdir -p /etc/updater/conf.d"
+ssh "$TURRIS_HOST" "mkdir -p /etc/updater/conf.d /etc/kresd"
 scp "$SCRIPT_DIR/system/no-foris.lua" "$TURRIS_HOST:/etc/updater/conf.d/"
+scp "$SCRIPT_DIR/system/kresd-custom.conf" "$TURRIS_HOST:/etc/kresd/custom.conf"
 echo "  ✓ Updater config deployed"
+echo "  ✓ Knot Resolver config deployed"
+
+# Vyčisti zbytečné UCI domain záznamy (DNS se řeší přes Knot Resolver)
+echo "  Cleaning up UCI domain entries..."
+ssh "$TURRIS_HOST" "
+for i in \$(seq 0 20); do
+  uci delete dhcp.@domain[0] 2>/dev/null || break
+done
+uci commit dhcp
+" && echo "  ✓ UCI domains cleaned" || echo "  ⚠ No domains to clean"
 echo ""
 
 # 7. Deploy CA certificate
@@ -107,9 +118,11 @@ fi
 echo ""
 
 # 8. Enable and restart lighttpd
-echo "8. Enabling and restarting lighttpd..."
+echo "8. Enabling and restarting services..."
 ssh "$TURRIS_HOST" "/etc/init.d/lighttpd enable && /etc/init.d/lighttpd restart"
 echo "  ✓ Lighttpd restarted"
+ssh "$TURRIS_HOST" "/etc/init.d/resolver restart"
+echo "  ✓ Resolver restarted"
 echo ""
 
 # 9. Verify services
