@@ -96,7 +96,7 @@ scp "$SCRIPT_DIR/system/kresd-custom.conf" "$TURRIS_HOST:/etc/kresd/custom.conf"
 echo "  ✓ Updater config deployed"
 echo "  ✓ Knot Resolver config deployed"
 
-# Vyčisti zbytečné UCI domain záznamy (DNS se řeší přes Knot Resolver)
+# Clean up unnecessary UCI domain entries (DNS is handled via Knot Resolver)
 echo "  Cleaning up UCI domain entries..."
 ssh "$TURRIS_HOST" "
 for i in \$(seq 0 20); do
