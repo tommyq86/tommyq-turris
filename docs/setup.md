@@ -1,135 +1,55 @@
-# Turris MOX Setup
+# Turris Configuration & Setup
 
-## Počáteční nastavení
+Documentation for custom configuration and scripts on Turris Omnia.
 
-### 1. Lighttpd konfigurace
+## Initial Setup
 
-Nasazení reverse proxy konfigurace:
+### 1. SSH Access
+Ensure SSH access is enabled and keys are authorized.
+
+### 2. Custom Scripts
+Deploy scripts from this repository to `/root/scripts`:
 
 ```bash
-cd lighttpd
 ./deploy.sh
 ```
 
-**Důležité:** Soubor `49-tommyq-no-auth.conf` vypíná Turris autentizaci pro `*.tommyq.cz` domény, aby služby měly vlastní přihlášení.
-
-### 2. DNS konfigurace
-
-V Turris webovém rozhraní (reForis nebo LuCI):
-
-**Network → DHCP and DNS → Domain Names**
-
-Přidat záznamy pro lokální resolvování:
-- `tommyq.cz` → `192.168.2.1`
-- `*.tommyq.cz` → `192.168.2.1`
-
-Nebo ručně v `/etc/config/dhcp`:
-
-```
-config domain
-    option name 'tommyq.cz'
-    option ip '192.168.2.1'
-
-config domain
-    option name 'portainer.tommyq.cz'
-    option ip '192.168.2.1'
-
-# ... další služby
-```
-
-### 3. SSL certifikáty
-
-Umístit Cloudflare Origin certifikáty:
-- `/etc/ssl/certs/tommyq.crt` - certifikát
-- `/etc/ssl/certs/tommyq.key` - privátní klíč
-
-Cloudflare Origin CA root certifikát:
-```bash
-curl -o /www/ca.crt https://developers.cloudflare.com/ssl/static/origin_ca_rsa_root.pem
-```
-
-### 4. Dashboard
-
-Vytvořit `/www/tommyq/index.html` s rozcestníkem služeb.
-
-### 5. Assistant služba (volitelné)
-
-Pro SmartHome webhook:
+### 3. SSL Certificates
+Install root CA and certificates for local services:
 
 ```bash
-# Naklonovat tommyq-assistant
-git clone https://github.com/tommyq86/tommyq-assistant.git
-cd tommyq-assistant
-./install.sh
+/root/scripts/install-tommyq-cert.sh
 ```
 
-Po TurrisOS update obnovit:
-```bash
-./scripts/restore-assistant.sh
-```
+### 4. Lighttpd Configuration
+Copy configurations from `lighttpd/configs/` to `/etc/lighttpd/conf.d/`.
 
-## Údržba
-
-### Záloha konfigurace
-
-Automatická záloha na Synology NAS:
-
-Na Turrisu:
-```bash
-./scripts/turris-backup.sh
-```
-
-Trigger z Leo (cron):
-```bash
-./scripts/leo-trigger-turris-backup.sh
-```
-
-### Monitoring paměti
+### 5. Assistant Service (Optional)
+Setup SmartHome assistant:
 
 ```bash
-./scripts/turris-mem-monitor.sh
+/root/scripts/setup_smart_home.sh
 ```
 
-### Update lighttpd konfigurace
+## Maintenance
 
-1. Upravit soubory v `lighttpd/configs/`
-2. Commitnout změny
-3. Nasadit: `./lighttpd/deploy.sh`
+### Configuration Backup
+The script `scripts/turris-backup.sh` handles automated backups of `/etc` and other important paths.
+
+### Memory Monitoring
+`scripts/turris-mem-monitor.sh` monitors memory usage and restarts services if necessary.
 
 ## Troubleshooting
 
-### Lighttpd nefunguje
+### Assistant service not working
+Check if the Python service is running:
 
 ```bash
-# Test konfigurace
-lighttpd -t -f /etc/lighttpd/lighttpd.conf
-
-# Restart
-/etc/init.d/lighttpd restart
-
-# Logy
-tail -f /var/log/lighttpd/error.log
+ps | grep app.py
 ```
 
-### DNS nefunguje
+Check logs:
 
 ```bash
-# Test DNS
-nslookup tommyq.cz 192.168.2.1
-
-# Restart dnsmasq
-/etc/init.d/dnsmasq restart
-```
-
-### Assistant služba nefunguje
-
-```bash
-# Status
-/etc/init.d/assistant status
-
-# Restart
-/etc/init.d/assistant restart
-
-# Logy
-logread | grep assistant
+logread -f | grep assistant
 ```
