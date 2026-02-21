@@ -9,6 +9,10 @@ CONFIGS_DIR="$SCRIPT_DIR/configs"
 
 echo "Deploying lighttpd configurations to $TURRIS_HOST..."
 
+# Clean up old configurations
+echo "  Cleaning up old configurations..."
+ssh "$TURRIS_HOST" "rm -f /etc/lighttpd/conf.d/99-ca-cert.conf /etc/lighttpd/conf.d/99-tommyq-*.conf"
+
 # Copy all config files
 for conf in "$CONFIGS_DIR"/*.conf; do
     filename=$(basename "$conf")
