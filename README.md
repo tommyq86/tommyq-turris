@@ -15,14 +15,10 @@ Configuration and scripts for Turris MOX router.
 ```
 ├── lighttpd/
 │   ├── configs/              # Lighttpd reverse proxy configuration
-│   │   ├── 99-ca-cert.conf          # CA certificate download
-│   │   ├── 99-tommyq-base.conf      # Base domain + HTTP redirect
-│   │   ├── 99-tommyq-services.conf  # Standard services (Portainer, *arr, qBittorrent)
-│   │   ├── 99-tommyq-filezilla.conf # FileZilla (KasmVNC + WebSocket)
-│   │   ├── 99-tommyq-jdownloader.conf # JDownloader
-│   │   ├── 99-tommyq-download.conf  # Synology Download Station
-│   │   ├── 99-tommyq-dsm.conf       # Synology DSM
-│   │   ├── 99-tommyq-plex.conf      # Plex Media Server
+│   │   ├── 49-tommyq-no-auth.conf   # Disable Turris auth for tommyq.cz
+│   │   ├── 99-tommyq-00-base.conf   # Base domain + HTTP redirect
+│   │   ├── 99-tommyq-10-media.conf  # Media Services (Plex, Seerr, *arr)
+│   │   ├── 99-tommyq-20-tools.conf  # Tools & Downloading (DSM, qBit, etc.)
 │   │   └── 99-tommyq-smarthome.conf # SmartHome webhook
 │   └── deploy.sh             # Deployment script
 ├── www/
@@ -83,7 +79,7 @@ All services are available via HTTPS with Cloudflare Origin CA certificate:
 - `https://portainer.example.com` - Docker management
 - `https://radarr.example.com` - Movies
 - `https://sonarr.example.com` - TV Shows
-- `https://overseerr.example.com` - Media requests
+- `https://seerr.example.com` - Media requests
 - `https://prowlarr.example.com` - Indexer management
 - `https://filezilla.example.com` - FTP client (KasmVNC)
 - `https://jdownloader.example.com` - Download manager
