@@ -116,16 +116,37 @@ else
 fi
 echo ""
 
-# 8. Enable and restart lighttpd
-echo "8. Enabling and restarting services..."
+# 8. Deploy sport service
+echo "8. Deploying sport service..."
+PYTHON_SPORT="$SCRIPT_DIR/../tommyq-python/sport"
+PYTHON_COMMON="$SCRIPT_DIR/../tommyq-python/common"
+ssh "$TURRIS_HOST" "mkdir -p /root/sport /root/common"
+scp "$PYTHON_SPORT/bryton.py" "$TURRIS_HOST:/root/sport/"
+scp "$PYTHON_COMMON"/*.py "$TURRIS_HOST:/root/common/"
+# Install websocket module if missing
+ssh "$TURRIS_HOST" "python3 -c 'import websocket' 2>/dev/null" || {
+    WSPATH=$(python3 -c "import websocket, os; print(os.path.dirname(websocket.__file__))")
+    scp -r "$WSPATH" "$TURRIS_HOST:/usr/lib/python3.11/site-packages/"
+}
+# Deploy configs if not present
+ssh "$TURRIS_HOST" "mkdir -p /root/.tommyq"
+[ -f "$HOME/.tommyq/bryton.conf" ] && scp "$HOME/.tommyq/bryton.conf" "$TURRIS_HOST:/root/.tommyq/"
+[ -f "$HOME/.tommyq/sport-token.conf" ] && scp "$HOME/.tommyq/sport-token.conf" "$TURRIS_HOST:/root/.tommyq/"
+# Setup cron
+ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q generate-sport-maps || (crontab -l 2>/dev/null; echo '0 6 * * * /root/scripts/generate-sport-maps.sh >/dev/null 2>&1') | crontab -"
+echo "  ✓ Sport service deployed"
+echo ""
+
+# 9. Enable and restart lighttpd
+echo "9. Enabling and restarting services..."
 ssh "$TURRIS_HOST" "/etc/init.d/lighttpd enable && /etc/init.d/lighttpd restart"
 echo "  ✓ Lighttpd restarted"
 ssh "$TURRIS_HOST" "/etc/init.d/resolver restart"
 echo "  ✓ Resolver restarted"
 echo ""
 
-# 9. Verify services
-echo "9. Verifying services..."
+# 10. Verify services
+echo "10. Verifying services..."
 echo -n "  Lighttpd: "
 ssh "$TURRIS_HOST" "/etc/init.d/lighttpd status" && echo "✓ running" || echo "✗ not running"
 
