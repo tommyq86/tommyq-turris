@@ -45,6 +45,46 @@ for ID in $ACTIVITIES; do
     python3 "$BRYTON" -o "$ACTIVITIES_DIR/${ID}.html" map "$ID" 2>/dev/null || true
 done
 
+# Generate JSON files from HTML
+python3 - "$ACTIVITIES_DIR" "$PUBLIC_TOKEN" << 'PYJSON'
+import sys, re, json
+from pathlib import Path
+activities_dir = Path(sys.argv[1])
+public_token = sys.argv[2]
+for f in activities_dir.glob("*.html"):
+    jf = f.with_suffix(".json")
+    content = f.read_text()
+    # Generate JSON
+    if not jf.exists():
+        def extract(name):
+            m = re.search(rf'const {name} = (\[.*?\]);', content, re.DOTALL)
+            if m:
+                try: return json.loads(m.group(1))
+                except: return None
+            return None
+        title_m = re.search(r'<title>(.*?)</title>', content)
+        sub_m = re.search(r'class="subtitle">(.*?)</div>', content)
+        data = {
+            "title": title_m.group(1) if title_m else f.stem,
+            "subtitle": sub_m.group(1) if sub_m else None,
+            "coords": extract("coords"),
+            "distance_km": extract("dist"),
+            "altitude_m": extract("alt"),
+            "speed_kmh": extract("spd"),
+            "heart_rate_bpm": extract("hr"),
+            "gradient_pct": extract("grad"),
+        }
+        jf.write_text(json.dumps(data))
+    # Inject share buttons if not already present
+    if 'id="shareBar"' not in content:
+        share_html = f'''<div id="shareBar" style="position:fixed;top:8px;right:8px;display:flex;gap:4px;z-index:9999">
+<button onclick="navigator.clipboard.writeText(location.href).then(()=>this.textContent='✓')" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Kopírovat odkaz">🔗</button>
+<a href="{f.stem}.json?token={public_token}" download="{f.stem}.json" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem;text-decoration:none" title="Stáhnout JSON">⬇️</a>
+</div>'''
+        content = content.replace('</body>', share_html + '</body>')
+        f.write_text(content)
+PYJSON
+
 # Generate index page
 python3 - "$ACTIVITIES_DIR" "$TOKEN" "$PUBLIC_TOKEN" << 'PYTHON'
 import sys, re, json
@@ -120,7 +160,7 @@ button:disabled {{ opacity: 0.5; cursor: wait; }}
 <h1>🚴 Aktivity</h1>
 <div class="header">
 <button id="refreshBtn" onclick="refresh(this)" style="display:none">🔄 Aktualizovat</button>
-<button id="shareListBtn" onclick="share(this,'?token=""" + public_token + """')" style="display:none" title="Kopírovat odkaz na seznam">📋 Sdílet seznam</button>
+<button id="shareListBtn" onclick="share(this,'?token=""" + public_token + """')" style="display:none" title="Kopírovat odkaz na seznam">🔗 Sdílet seznam</button>
 <button id="deleteAllBtn" onclick="deleteAll(this)" style="display:none">🗑️ Smazat vše</button>
 <span class="totals">Celkem: {total_km:.1f} km""" + (f" · {fmt_time(total_seconds)}" if total_seconds else "") + """</span>
 </div>
@@ -132,7 +172,8 @@ for aid, title, dist_km in rows:
         dur_str = f" · {fmt_time(durations[aid])}"
     meta = f"{dist_km:.1f} km{dur_str}" if dist_km > 0 else ""
     share_url = f"activities/{aid}.html?token={public_token}"
-    html += f'<div class="row"><button class="del" onclick="del(this,\'{aid}\')" title="Smazat">🗑️</button><button class="share" onclick="share(this,\'{share_url}\')" title="Kopírovat odkaz">📋</button><a href="{share_url}"><span>{title}</span><span class="meta">{meta}</span></a></div>\n'
+    json_url = f"activities/{aid}.json?token={public_token}"
+    html += f'<div class="row"><button class="del" onclick="del(this,\'{aid}\')" title="Smazat">🗑️</button><button class="share" onclick="share(this,\'{share_url}\')" title="Kopírovat odkaz">🔗</button><button class="share" onclick="download(\'{json_url}\',\'{aid}.json\')" title="Stáhnout JSON">⬇️</button><a href="{share_url}"><span>{title}</span><span class="meta">{meta}</span></a></div>\n'
 html += """</div>
 <script>
 var isAdmin = location.search.includes('token=""" + token + """');
@@ -146,8 +187,11 @@ if (isAdmin) {
 function share(btn, path) {
   var url = location.origin + '/sport/' + path;
   navigator.clipboard.writeText(url).then(() => {
-    btn.textContent = '✓'; setTimeout(() => btn.textContent = '📋', 1500);
+    btn.textContent = '✓'; setTimeout(() => btn.textContent = '🔗', 1500);
   });
+}
+function download(url, name) {
+  var a = document.createElement('a'); a.href = url; a.download = name; a.click();
 }
 function del(btn, id) {
   if (!confirm('Smazat aktivitu?')) return;
