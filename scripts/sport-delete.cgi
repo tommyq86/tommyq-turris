@@ -13,7 +13,7 @@ fi
 
 if [ "$ID" = "all" ]; then
     rm -f /srv/tommyq/sport/activities/*.html
-    /root/scripts/generate-sport-maps.sh >/dev/null 2>&1 &
+    /root/scripts/generate-sport-maps.sh all >/dev/null 2>&1 &
     echo '{"status":"all deleted"}'
 elif [ -n "$ID" ]; then
     rm -f "/srv/tommyq/sport/activities/${ID}.html"

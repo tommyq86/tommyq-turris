@@ -10,8 +10,12 @@ TOKEN_FILE="/root/.tommyq/sport-token.conf"
 source "$TOKEN_FILE"
 mkdir -p "$ACTIVITIES_DIR"
 
-# Generate maps for last 20 activities and cache metadata
-LIST_OUTPUT=$(python3 "$BRYTON" list -n 20 2>/dev/null)
+# Generate maps for activities and cache metadata
+if [ "$1" = "all" ]; then
+    LIST_OUTPUT=$(python3 "$BRYTON" list 2>/dev/null)
+else
+    LIST_OUTPUT=$(python3 "$BRYTON" list -n 20 2>/dev/null)
+fi
 ACTIVITIES=$(echo "$LIST_OUTPUT" | tail -n +3 | awk '{print $1}')
 
 # Save duration cache (ID -> elapsed seconds) from list output
@@ -75,14 +79,32 @@ for f in activities_dir.glob("*.html"):
             "gradient_pct": extract("grad"),
         }
         jf.write_text(json.dumps(data))
-    # Inject share buttons if not already present
-    if 'id="shareBar"' not in content:
-        share_html = f'''<div id="shareBar" style="position:fixed;top:8px;right:8px;display:flex;gap:4px;z-index:9999">
+    # Inject/update share buttons
+    share_html = f'''<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<div id="shareBar" style="position:fixed;top:8px;right:8px;display:flex;gap:4px;z-index:9999">
 <button onclick="navigator.clipboard.writeText(location.href).then(()=>this.textContent='✓')" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Kopírovat odkaz">🔗</button>
 <a href="{f.stem}.json?token={public_token}" download="{f.stem}.json" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem;text-decoration:none" title="Stáhnout JSON">⬇️</a>
-</div>'''
-        content = content.replace('</body>', share_html + '</body>')
-        f.write_text(content)
+<button onclick="exportPng(this)" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Stáhnout mapu jako PNG">🖼️</button>
+</div>
+<script>
+function exportPng(btn) {{
+  btn.disabled = true; btn.textContent = '⏳';
+  html2canvas(document.body, {{useCORS:true}}).then(function(canvas) {{
+    var a = document.createElement('a');
+    a.download = document.title.replace(/[^a-zA-Z0-9_-]/g,'_') + '.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    btn.textContent = '🖼️'; btn.disabled = false;
+  }}).catch(function() {{ btn.textContent = '✗'; btn.disabled = false; }});
+}}
+</script>'''
+    # Remove old shareBar and exportPng if present, then inject new
+    import re as _re
+    content = _re.sub(r'<script src="https://cdn\.jsdelivr\.net/npm/html2canvas.*?</script>', '', content, flags=_re.DOTALL)
+    content = _re.sub(r'<div id="shareBar".*?</div>', '', content, flags=_re.DOTALL)
+    content = _re.sub(r'<script>\s*function exportPng.*?</script>', '', content, flags=_re.DOTALL)
+    content = content.replace('</body>', share_html + '</body>')
+    f.write_text(content)
 PYJSON
 
 # Generate index page
@@ -153,6 +175,8 @@ a:hover {{ background: rgba(255,255,255,0.1); }}
 .share:hover {{ color: #fff; background: rgba(255,255,255,0.1); }}
 .del {{ background: none; border: none; color: #aaa; cursor: pointer; padding: 0.4rem; font-size: 1.1rem; border-radius: 4px; display: none; }}
 .del:hover {{ color: #ff4444; background: rgba(255,68,68,0.1); }}
+.overview {{ background: none; border: none; color: #aaa; cursor: pointer; padding: 0.4rem; font-size: 1.1rem; border-radius: 4px; }}
+.overview:hover {{ color: #fff; background: rgba(255,255,255,0.1); }}
 button {{ background: #ff6b35; color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer; font-size: 1rem; }}
 button:hover {{ background: #e55a2b; }}
 button:disabled {{ opacity: 0.5; cursor: wait; }}
@@ -173,10 +197,11 @@ for aid, title, dist_km in rows:
     meta = f"{dist_km:.1f} km{dur_str}" if dist_km > 0 else ""
     share_url = f"activities/{aid}.html?token={public_token}"
     json_url = f"activities/{aid}.json?token={public_token}"
-    html += f'<div class="row"><button class="del" onclick="del(this,\'{aid}\')" title="Smazat">🗑️</button><button class="share" onclick="share(this,\'{share_url}\')" title="Kopírovat odkaz">🔗</button><button class="share" onclick="download(\'{json_url}\',\'{aid}.json\')" title="Stáhnout JSON">⬇️</button><a href="{share_url}"><span>{title}</span><span class="meta">{meta}</span></a></div>\n'
+    html += f'<div class="row"><button class="del" onclick="del(this,\'{aid}\')" title="Smazat">🗑️</button><button class="share" onclick="share(this,\'{share_url}\')" title="Kopírovat odkaz">🔗</button><button class="share" onclick="download(\'{json_url}\',\'{aid}.json\')" title="Stáhnout JSON">⬇️</button><button class="overview" onclick="overview(this,\'{aid}\')" title="Přehled">📊</button><a href="{share_url}"><span>{title}</span><span class="meta">{meta}</span></a></div>\n'
 html += """</div>
 <script>
 var isAdmin = location.search.includes('token=""" + token + """');
+var reqToken = new URLSearchParams(location.search).get('token');
 if (isAdmin) {
   document.getElementById('refreshBtn').style.display = '';
   document.getElementById('shareListBtn').style.display = '';
@@ -192,6 +217,16 @@ function share(btn, path) {
 }
 function download(url, name) {
   var a = document.createElement('a'); a.href = url; a.download = name; a.click();
+}
+function overview(btn, id) {
+  btn.textContent = '⏳';
+  fetch('cgi/overview.cgi?token=' + reqToken + '&id=' + id)
+    .then(r => r.json()).then(d => {
+      var text = d.title + '\\n' + d.date + '\\n\\n' + d.fields.map(f => f.label + ': ' + f.value).join('\\n');
+      return navigator.clipboard.writeText(text);
+    }).then(() => {
+      btn.textContent = '✓'; setTimeout(() => btn.textContent = '📊', 1500);
+    }).catch(() => { btn.textContent = '✗'; setTimeout(() => btn.textContent = '📊', 1500); });
 }
 function del(btn, id) {
   if (!confirm('Smazat aktivitu?')) return;

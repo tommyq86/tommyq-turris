@@ -132,6 +132,13 @@ ssh "$TURRIS_HOST" "python3 -c 'import websocket' 2>/dev/null" || {
 ssh "$TURRIS_HOST" "mkdir -p /root/.tommyq"
 [ -f "$HOME/.tommyq/bryton.conf" ] && scp "$HOME/.tommyq/bryton.conf" "$TURRIS_HOST:/root/.tommyq/"
 [ -f "$HOME/.tommyq/sport-token.conf" ] && scp "$HOME/.tommyq/sport-token.conf" "$TURRIS_HOST:/root/.tommyq/"
+# Deploy CGI scripts
+ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/cgi"
+for cgi in "$SCRIPT_DIR/scripts"/sport-*.cgi; do
+    name=$(basename "$cgi" | sed 's/^sport-//')
+    scp "$cgi" "$TURRIS_HOST:/srv/tommyq/sport/cgi/$name"
+    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/sport/cgi/$name"
+done
 # Setup cron
 ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q generate-sport-maps || (crontab -l 2>/dev/null; echo '0 6 * * * /root/scripts/generate-sport-maps.sh >/dev/null 2>&1') | crontab -"
 echo "  ✓ Sport service deployed"
