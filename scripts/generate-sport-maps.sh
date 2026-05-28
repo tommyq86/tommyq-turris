@@ -46,12 +46,13 @@ for ID in $ACTIVITIES; do
 done
 
 # Generate index page
-python3 - "$ACTIVITIES_DIR" "$TOKEN" << 'PYTHON'
+python3 - "$ACTIVITIES_DIR" "$TOKEN" "$PUBLIC_TOKEN" << 'PYTHON'
 import sys, re, json
 from pathlib import Path
 
 activities_dir = Path(sys.argv[1])
 token = sys.argv[2]
+public_token = sys.argv[3]
 files = sorted(activities_dir.glob("*.html"), key=lambda f: f.stat().st_mtime, reverse=True)
 
 rows = []
@@ -107,13 +108,20 @@ h1 {{ margin-bottom: 1.5rem; }}
 a {{ color: #ff6b35; text-decoration: none; display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); }}
 a:hover {{ background: rgba(255,255,255,0.1); }}
 .meta {{ color: #aaa; font-size: 0.85rem; white-space: nowrap; margin-left: 1rem; }}
+.row {{ display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }}
+.share {{ background: none; border: none; color: #aaa; cursor: pointer; padding: 0.4rem; font-size: 1.1rem; border-radius: 4px; display: none; }}
+.share:hover {{ color: #fff; background: rgba(255,255,255,0.1); }}
+.del {{ background: none; border: none; color: #aaa; cursor: pointer; padding: 0.4rem; font-size: 1.1rem; border-radius: 4px; display: none; }}
+.del:hover {{ color: #ff4444; background: rgba(255,68,68,0.1); }}
 button {{ background: #ff6b35; color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer; font-size: 1rem; }}
 button:hover {{ background: #e55a2b; }}
 button:disabled {{ opacity: 0.5; cursor: wait; }}
 </style></head><body>
 <h1>🚴 Aktivity</h1>
 <div class="header">
-<button onclick="refresh(this)">🔄 Aktualizovat</button>
+<button id="refreshBtn" onclick="refresh(this)" style="display:none">🔄 Aktualizovat</button>
+<button id="shareListBtn" onclick="share(this,'?token=""" + public_token + """')" style="display:none" title="Kopírovat odkaz na seznam">📋 Sdílet seznam</button>
+<button id="deleteAllBtn" onclick="deleteAll(this)" style="display:none">🗑️ Smazat vše</button>
 <span class="totals">Celkem: {total_km:.1f} km""" + (f" · {fmt_time(total_seconds)}" if total_seconds else "") + """</span>
 </div>
 <div class="list">
@@ -123,9 +131,36 @@ for aid, title, dist_km in rows:
     if aid in durations:
         dur_str = f" · {fmt_time(durations[aid])}"
     meta = f"{dist_km:.1f} km{dur_str}" if dist_km > 0 else ""
-    html += f'<a href="activities/{aid}.html?token={token}"><span>{title}</span><span class="meta">{meta}</span></a>\n'
+    share_url = f"activities/{aid}.html?token={public_token}"
+    html += f'<div class="row"><button class="del" onclick="del(this,\'{aid}\')" title="Smazat">🗑️</button><button class="share" onclick="share(this,\'{share_url}\')" title="Kopírovat odkaz">📋</button><a href="{share_url}"><span>{title}</span><span class="meta">{meta}</span></a></div>\n'
 html += """</div>
 <script>
+var isAdmin = location.search.includes('token=""" + token + """');
+if (isAdmin) {
+  document.getElementById('refreshBtn').style.display = '';
+  document.getElementById('shareListBtn').style.display = '';
+  document.getElementById('deleteAllBtn').style.display = '';
+  document.querySelectorAll('.share').forEach(b => b.style.display = 'inline-block');
+  document.querySelectorAll('.del').forEach(b => b.style.display = 'inline-block');
+}
+function share(btn, path) {
+  var url = location.origin + '/sport/' + path;
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = '✓'; setTimeout(() => btn.textContent = '📋', 1500);
+  });
+}
+function del(btn, id) {
+  if (!confirm('Smazat aktivitu?')) return;
+  btn.disabled = true;
+  fetch('cgi/delete.cgi?token=""" + token + """&id=' + id)
+    .then(() => btn.closest('.row').remove());
+}
+function deleteAll(btn) {
+  if (!confirm('Smazat VŠECHNY aktivity?')) return;
+  btn.disabled = true; btn.textContent = '⏳ Mažu...';
+  fetch('cgi/delete.cgi?token=""" + token + """&id=all')
+    .then(() => { btn.textContent = '✓ Smazáno'; setTimeout(() => location.reload(), 5000); });
+}
 function refresh(btn) {
   btn.disabled = true; btn.textContent = '⏳ Generuji...';
   fetch('cgi/refresh.cgi?' + location.search.slice(1))
