@@ -242,9 +242,21 @@ function deleteAll(btn) {
 }
 function refresh(btn) {
   btn.disabled = true; btn.textContent = '⏳ Generuji...';
-  fetch('cgi/refresh.cgi?' + location.search.slice(1))
-    .then(() => { btn.textContent = '✓ Hotovo'; setTimeout(() => location.reload(), 30000); })
-    .catch(() => { btn.textContent = '✗ Chyba'; btn.disabled = false; });
+  fetch('cgi/api.cgi?token=' + reqToken).then(r => r.json()).then(function(before) {
+    var prevCount = before.length;
+    fetch('cgi/refresh.cgi?' + location.search.slice(1)).then(function() {
+      var attempts = 0;
+      var poll = setInterval(function() {
+        attempts++;
+        fetch('cgi/api.cgi?token=' + reqToken).then(r => r.json()).then(function(now) {
+          if (now.length > prevCount || attempts >= 60) {
+            clearInterval(poll);
+            location.reload();
+          }
+        });
+      }, 3000);
+    });
+  }).catch(() => { btn.textContent = '✗ Chyba'; btn.disabled = false; });
 }
 </script>
 </body></html>"""
