@@ -103,6 +103,14 @@ for i in \$(seq 0 20); do
 done
 uci commit dhcp
 " && echo "  ✓ UCI domains cleaned" || echo "  ⚠ No domains to clean"
+
+# Allow plex.direct through DNS rebinding protection (resolves to local IPs)
+echo "  Configuring DNS rebinding exception for plex.direct..."
+ssh "$TURRIS_HOST" "
+uci get dhcp.@dnsmasq[0].rebind_domain 2>/dev/null | grep -q plex.direct || uci add_list dhcp.@dnsmasq[0].rebind_domain='plex.direct'
+uci commit dhcp
+"
+echo "  ✓ plex.direct rebind exception set"
 echo ""
 
 # 7. Deploy CA certificate
