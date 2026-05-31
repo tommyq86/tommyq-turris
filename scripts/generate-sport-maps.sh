@@ -184,7 +184,7 @@ button:disabled {{ opacity: 0.5; cursor: wait; }}
 <h1>🚴 Aktivity</h1>
 <div class="header">
 <button id="refreshBtn" onclick="refresh(this)" style="display:none">🔄 Aktualizovat</button>
-<button id="shareListBtn" onclick="share(this,'?token=""" + public_token + """')" style="display:none" title="Kopírovat odkaz na seznam">🔗 Sdílet seznam</button>
+<button id="shareListBtn" onclick="share(this,'?token=""" + public_token + f"""')" style="display:none" title="Kopírovat odkaz na seznam">🔗 Sdílet seznam</button>
 <button id="deleteAllBtn" onclick="deleteAll(this)" style="display:none">🗑️ Smazat vše</button>
 <span class="totals">Celkem: {total_km:.1f} km""" + (f" · {fmt_time(total_seconds)}" if total_seconds else "") + """</span>
 </div>
@@ -196,8 +196,7 @@ for aid, title, dist_km in rows:
         dur_str = f" · {fmt_time(durations[aid])}"
     meta = f"{dist_km:.1f} km{dur_str}" if dist_km > 0 else ""
     share_url = f"activities/{aid}.html?token={public_token}"
-    json_url = f"activities/{aid}.json?token={public_token}"
-    html += f'<div class="row"><button class="del" onclick="del(this,\'{aid}\')" title="Smazat">🗑️</button><button class="share" onclick="share(this,\'{share_url}\')" title="Kopírovat odkaz">🔗</button><button class="share" onclick="download(\'{json_url}\',\'{aid}.json\')" title="Stáhnout JSON">⬇️</button><button class="overview" onclick="overview(this,\'{aid}\')" title="Přehled">📊</button><a href="{share_url}"><span>{title}</span><span class="meta">{meta}</span></a></div>\n'
+    html += f'<div class="row"><button class="del" onclick="del(this,\'{aid}\')" title="Smazat">🗑️</button><button class="share" onclick="share(this,\'{share_url}\')" title="Kopírovat odkaz">🔗</button><button class="overview" onclick="overview(this,\'{aid}\')" title="Přehled">📊</button><a href="{share_url}"><span>{title}</span><span class="meta">{meta}</span></a></div>\n'
 html += """</div>
 <script>
 var isAdmin = location.search.includes('token=""" + token + """');
@@ -214,9 +213,6 @@ function share(btn, path) {
   navigator.clipboard.writeText(url).then(() => {
     btn.textContent = '✓'; setTimeout(() => btn.textContent = '🔗', 1500);
   });
-}
-function download(url, name) {
-  var a = document.createElement('a'); a.href = url; a.download = name; a.click();
 }
 function overview(btn, id) {
   btn.textContent = '⏳';
