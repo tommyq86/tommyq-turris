@@ -11,11 +11,15 @@ source "$TOKEN_FILE"
 mkdir -p "$ACTIVITIES_DIR"
 
 # Generate maps for activities and cache metadata
-if [ "$1" = "all" ]; then
+if [ "$1" = "list-only" ]; then
+    : # Skip fetching, just regenerate index
+elif [ "$1" = "all" ]; then
     LIST_OUTPUT=$(python3 "$BRYTON" list 2>/dev/null)
 else
     LIST_OUTPUT=$(python3 "$BRYTON" list -n 20 2>/dev/null)
 fi
+
+if [ "$1" != "list-only" ]; then
 ACTIVITIES=$(echo "$LIST_OUTPUT" | tail -n +3 | awk '{print $1}')
 
 # Save duration cache (ID -> elapsed seconds) from list output
@@ -48,6 +52,7 @@ for ID in $ACTIVITIES; do
     [ -f "$ACTIVITIES_DIR/${ID}.html" ] && continue
     python3 "$BRYTON" -o "$ACTIVITIES_DIR/${ID}.html" map "$ID" 2>/dev/null || true
 done
+fi
 
 # Generate JSON files from HTML
 python3 - "$ACTIVITIES_DIR" "$PUBLIC_TOKEN" << 'PYJSON'

@@ -13,11 +13,14 @@ fi
 
 if [ "$ID" = "all" ]; then
     rm -f /srv/tommyq/sport/activities/*.html
-    /root/scripts/generate-sport-maps.sh all >/dev/null 2>&1 &
+    rm -f /srv/tommyq/sport/activities/*.json
+    rm -f /srv/tommyq/sport/.activity_cache.json
+    /root/scripts/generate-sport-maps.sh list-only >/dev/null 2>&1 &
     echo '{"status":"all deleted"}'
 elif [ -n "$ID" ]; then
     rm -f "/srv/tommyq/sport/activities/${ID}.html"
-    /root/scripts/generate-sport-maps.sh >/dev/null 2>&1 &
+    rm -f "/srv/tommyq/sport/activities/${ID}.json"
+    /root/scripts/generate-sport-maps.sh list-only >/dev/null 2>&1 &
     echo "{\"status\":\"deleted\",\"id\":\"$ID\"}"
 else
     echo '{"error":"missing id"}'
