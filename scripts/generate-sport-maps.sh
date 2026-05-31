@@ -61,37 +61,25 @@ from pathlib import Path
 activities_dir = Path(sys.argv[1])
 public_token = sys.argv[2]
 for f in activities_dir.glob("*.html"):
-    jf = f.with_suffix(".json")
     content = f.read_text()
-    # Generate JSON
-    if not jf.exists():
-        def extract(name):
-            m = re.search(rf'const {name} = (\[.*?\]);', content, re.DOTALL)
-            if m:
-                try: return json.loads(m.group(1))
-                except: return None
-            return None
-        title_m = re.search(r'<title>(.*?)</title>', content)
-        sub_m = re.search(r'class="subtitle">(.*?)</div>', content)
-        data = {
-            "title": title_m.group(1) if title_m else f.stem,
-            "subtitle": sub_m.group(1) if sub_m else None,
-            "coords": extract("coords"),
-            "distance_km": extract("dist"),
-            "altitude_m": extract("alt"),
-            "speed_kmh": extract("spd"),
-            "heart_rate_bpm": extract("hr"),
-            "gradient_pct": extract("grad"),
-        }
-        jf.write_text(json.dumps(data))
     # Inject/update share buttons
     share_html = f'''<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <div id="shareBar" style="position:fixed;top:8px;right:8px;display:flex;gap:4px;z-index:9999">
 <button onclick="navigator.clipboard.writeText(location.href).then(()=>this.textContent='✓')" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Kopírovat odkaz">🔗</button>
-<a href="{f.stem}.json?token={public_token}" download="{f.stem}.json" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem;text-decoration:none" title="Stáhnout JSON">⬇️</a>
+<button onclick="copyOverview(this)" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Kopírovat přehled">📊</button>
 <button onclick="exportPng(this)" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Stáhnout mapu jako PNG">🖼️</button>
 </div>
 <script>
+function copyOverview(btn) {{
+  btn.disabled = true; btn.textContent = '⏳';
+  var token = new URLSearchParams(location.search).get('token');
+  fetch('../cgi/overview.cgi?token=' + token + '&id={f.stem}')
+    .then(r => r.json()).then(d => {{
+      var text = d.title + '\\n' + d.date + '\\n\\n' + d.fields.map(f => f.label + ': ' + f.value).join('\\n');
+      return navigator.clipboard.writeText(text);
+    }}).then(() => {{ btn.textContent = '✓'; btn.disabled = false; setTimeout(() => btn.textContent = '📊', 1500); }})
+    .catch(() => {{ btn.textContent = '✗'; btn.disabled = false; setTimeout(() => btn.textContent = '📊', 1500); }});
+}}
 function exportPng(btn) {{
   btn.disabled = true; btn.textContent = '⏳';
   html2canvas(document.body, {{useCORS:true}}).then(function(canvas) {{
@@ -107,7 +95,7 @@ function exportPng(btn) {{
     import re as _re
     content = _re.sub(r'<script src="https://cdn\.jsdelivr\.net/npm/html2canvas.*?</script>', '', content, flags=_re.DOTALL)
     content = _re.sub(r'<div id="shareBar".*?</div>', '', content, flags=_re.DOTALL)
-    content = _re.sub(r'<script>\s*function exportPng.*?</script>', '', content, flags=_re.DOTALL)
+    content = _re.sub(r'<script>\s*function (exportPng|copyOverview).*?</script>', '', content, flags=_re.DOTALL)
     content = content.replace('</body>', share_html + '</body>')
     f.write_text(content)
 PYJSON
