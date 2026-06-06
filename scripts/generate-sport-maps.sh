@@ -82,13 +82,32 @@ function copyOverview(btn) {{
 }}
 function exportPng(btn) {{
   btn.disabled = true; btn.textContent = '⏳';
-  html2canvas(document.body, {{useCORS:true}}).then(function(canvas) {{
-    var a = document.createElement('a');
-    a.download = document.title.replace(/[^a-zA-Z0-9_-]/g,'_') + '.png';
-    a.href = canvas.toDataURL('image/png');
-    a.click();
-    btn.textContent = '🖼️'; btn.disabled = false;
-  }}).catch(function() {{ btn.textContent = '✗'; btn.disabled = false; }});
+  document.getElementById('shareBar').style.display = 'none';
+  map.invalidateSize();
+  setTimeout(function() {{
+    // Fix html2canvas + Leaflet: convert transform to top/left
+    document.querySelectorAll('.leaflet-tile-container').forEach(function(c) {{
+      var t = c.style.transform;
+      var m = t.match(/translate3d\\((.+?)px,\\s*(.+?)px/);
+      if (m) {{ c.style.transform = 'none'; c.style.left = m[1] + 'px'; c.style.top = m[2] + 'px'; }}
+    }});
+    document.querySelectorAll('.leaflet-overlay-pane canvas, .leaflet-overlay-pane svg').forEach(function(el) {{
+      var t = el.style.transform;
+      var m = t && t.match(/translate3d\\((.+?)px,\\s*(.+?)px/);
+      if (m) {{ el.style.transform = 'none'; el.style.left = m[1] + 'px'; el.style.top = m[2] + 'px'; }}
+    }});
+    html2canvas(document.body, {{useCORS:true, allowTaint:false, scrollX:0, scrollY:0}}).then(function(canvas) {{
+      var a = document.createElement('a');
+      a.download = document.title.replace(/[^a-zA-Z0-9_-]/g,'_') + '.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      btn.textContent = '🖼️'; btn.disabled = false;
+    }}).catch(function() {{ btn.textContent = '✗'; btn.disabled = false; }})
+    .finally(function() {{
+      document.getElementById('shareBar').style.display = '';
+      map.invalidateSize();
+    }});
+  }}, 300);
 }}
 </script>'''
     # Remove old shareBar and exportPng if present, then inject new
@@ -96,6 +115,9 @@ function exportPng(btn) {{
     content = _re.sub(r'<script src="https://cdn\.jsdelivr\.net/npm/html2canvas.*?</script>', '', content, flags=_re.DOTALL)
     content = _re.sub(r'<div id="shareBar".*?</div>', '', content, flags=_re.DOTALL)
     content = _re.sub(r'<script>\s*function (exportPng|copyOverview).*?</script>', '', content, flags=_re.DOTALL)
+    # Ensure preferCanvas is set on map
+    content = content.replace("L.map('map')", "L.map('map', {preferCanvas: true})")
+    content = content.replace("L.map('map', {preferCanvas: true}, {preferCanvas: true})", "L.map('map', {preferCanvas: true})")
     content = content.replace('</body>', share_html + '</body>')
     f.write_text(content)
 PYJSON
