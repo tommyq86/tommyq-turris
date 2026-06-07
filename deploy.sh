@@ -92,8 +92,17 @@ echo "6. Deploying system configurations..."
 ssh "$TURRIS_HOST" "mkdir -p /etc/updater/conf.d /etc/kresd"
 scp "$SCRIPT_DIR/system/no-foris.lua" "$TURRIS_HOST:/etc/updater/conf.d/"
 scp "$SCRIPT_DIR/system/kresd-custom.conf" "$TURRIS_HOST:/etc/kresd/custom.conf"
+# Ensure kresd loads custom config
+ssh "$TURRIS_HOST" "uci set resolver.kresd=kresd; uci set resolver.kresd.include_config='/etc/kresd/custom.conf'; uci commit resolver"
 echo "  ✓ Updater config deployed"
 echo "  ✓ Knot Resolver config deployed"
+
+# Deploy dnsmasq local domains (fallback, kresd handles DNS via hints)
+ssh "$TURRIS_HOST" "mkdir -p /etc/dnsmasq.d"
+scp "$SCRIPT_DIR/system/dnsmasq-local-domains.conf" "$TURRIS_HOST:/etc/dnsmasq.d/local-domains.conf"
+# Ensure dnsmasq runs in DHCP-only mode (kresd handles DNS on port 53)
+ssh "$TURRIS_HOST" "uci set dhcp.@dnsmasq[0].port='0'; uci commit dhcp"
+echo "  ✓ Dnsmasq local domains deployed"
 
 # Clean up unnecessary UCI domain entries (DNS is handled via Knot Resolver)
 echo "  Cleaning up UCI domain entries..."
@@ -158,6 +167,8 @@ ssh "$TURRIS_HOST" "/etc/init.d/lighttpd enable && /etc/init.d/lighttpd restart"
 echo "  ✓ Lighttpd restarted"
 ssh "$TURRIS_HOST" "/etc/init.d/resolver restart"
 echo "  ✓ Resolver restarted"
+ssh "$TURRIS_HOST" "/etc/init.d/dnsmasq restart"
+echo "  ✓ Dnsmasq restarted"
 echo ""
 
 # 10. Verify services
