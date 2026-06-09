@@ -61,13 +61,9 @@ tar czf - -C / etc/config 2>/dev/null | ssh tommyq@leo "cat > ${BACKUP_DIR}/${DA
 echo "Backup: ssh..."
 tar czf - -C / root/.ssh 2>/dev/null | ssh tommyq@leo "cat > ${BACKUP_DIR}/${DATE}/ssh.tar.gz"
 
-# Assistant
-echo "Backup: assistant..."
-tar czf - -C / srv/assistant 2>/dev/null | ssh tommyq@leo "cat > ${BACKUP_DIR}/${DATE}/assistant.tar.gz"
-
-# Logs
-echo "Backup: logs..."
-tar czf - -C / srv/log 2>/dev/null | ssh tommyq@leo "cat > ${BACKUP_DIR}/${DATE}/logs.tar.gz"
+# Assistant + sport + logs (all under /srv/tommyq)
+echo "Backup: /srv/tommyq..."
+tar czf - -C / srv/tommyq 2>/dev/null | ssh tommyq@leo "cat > ${BACKUP_DIR}/${DATE}/srv-tommyq.tar.gz"
 
 # Clean up old backups (keep last 7)
 echo "Cleaning up old backups..."
