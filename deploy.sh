@@ -145,6 +145,11 @@ ssh "$TURRIS_HOST" "python3 -c 'import websocket' 2>/dev/null" || {
     WSPATH=$(python3 -c "import websocket, os; print(os.path.dirname(websocket.__file__))")
     scp -r "$WSPATH" "$TURRIS_HOST:/usr/lib/python3.11/site-packages/"
 }
+# Install garmin_fit_sdk if missing
+ssh "$TURRIS_HOST" "python3 -c 'import garmin_fit_sdk' 2>/dev/null" || {
+    FITPATH=$(python3 -c "import garmin_fit_sdk, os; print(os.path.dirname(garmin_fit_sdk.__file__))")
+    scp -r "$FITPATH" "$TURRIS_HOST:/usr/lib/python3.11/site-packages/"
+}
 # Deploy configs if not present
 ssh "$TURRIS_HOST" "mkdir -p /root/.tommyq"
 [ -f "$HOME/.tommyq/bryton.conf" ] && scp "$HOME/.tommyq/bryton.conf" "$TURRIS_HOST:/root/.tommyq/"

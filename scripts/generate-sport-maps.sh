@@ -49,8 +49,8 @@ PYCACHE
 rm -f "$LIST_TMP"
 
 for ID in $ACTIVITIES; do
-    [ -f "$ACTIVITIES_DIR/${ID}.html" ] && continue
-    python3 "$BRYTON" -o "$ACTIVITIES_DIR/${ID}.html" map "$ID" 2>/dev/null || true
+    [ -f "$ACTIVITIES_DIR/${ID}.html" ] || python3 "$BRYTON" -o "$ACTIVITIES_DIR/${ID}.html" map "$ID" 2>/dev/null || true
+    [ -f "$ACTIVITIES_DIR/${ID}.fit" ] || python3 "$BRYTON" -o "$ACTIVITIES_DIR/${ID}.fit" download "$ID" 2>/dev/null || true
 done
 fi
 
