@@ -65,6 +65,17 @@ echo ""
 
 # 3. Deploy lighttpd configs
 echo "3. Deploying lighttpd configurations..."
+# Generate sport config from template with tokens
+SPORT_TOKEN_FILE="$HOME/.tommyq/sport-token.conf"
+if [ -f "$SPORT_TOKEN_FILE" ]; then
+    ADMIN_TOKEN=$(grep '^TOKEN=' "$SPORT_TOKEN_FILE" | cut -d= -f2)
+    PUBLIC_TOKEN=$(grep '^PUBLIC_TOKEN=' "$SPORT_TOKEN_FILE" | cut -d= -f2)
+    sed -e "s/__ADMIN_TOKEN__/$ADMIN_TOKEN/g" -e "s/__PUBLIC_TOKEN__/$PUBLIC_TOKEN/g" \
+        "$SCRIPT_DIR/lighttpd/configs/99-tommyq-30-sport.conf.template" \
+        > "$SCRIPT_DIR/lighttpd/configs/99-tommyq-30-sport.conf"
+else
+    echo "  ⚠ Missing $SPORT_TOKEN_FILE — sport config will have no tokens!"
+fi
 cd "$SCRIPT_DIR/lighttpd"
 ./deploy.sh "$TURRIS_HOST"
 echo ""

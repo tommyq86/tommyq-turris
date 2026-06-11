@@ -11,6 +11,13 @@ if [ "$TOKEN" != "$ADMIN_TOKEN" ]; then
     exit 0
 fi
 
+# Validate ID (only alphanumeric, dash, underscore allowed)
+if [ "$ID" != "all" ] && [ -n "$ID" ]; then
+    case "$ID" in
+        *[!a-zA-Z0-9_-]*) echo '{"error":"invalid id"}'; exit 0 ;;
+    esac
+fi
+
 if [ "$ID" = "all" ]; then
     rm -f /srv/tommyq/sport/activities/*.html
     rm -f /srv/tommyq/sport/activities/*.json

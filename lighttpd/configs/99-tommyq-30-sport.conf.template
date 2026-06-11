@@ -3,12 +3,12 @@
 # public token = view only (shareable links)
 $HTTP["host"] == "tommyq.cz" {
     $HTTP["url"] =~ "^/sport" {
-        $HTTP["querystring"] !~ "token=(vYOFavsNQi9MW4V3LbmuLQ|pub_H4CJq5JkYddcey4e)" {
+        $HTTP["querystring"] !~ "token=(__ADMIN_TOKEN__|__PUBLIC_TOKEN__)" {
             url.redirect = ( "" => "https://tommyq.cz/" )
         }
     }
     $HTTP["url"] =~ "^/sport/cgi/(refresh|delete)" {
-        $HTTP["querystring"] !~ "token=vYOFavsNQi9MW4V3LbmuLQ" {
+        $HTTP["querystring"] !~ "token=__ADMIN_TOKEN__" {
             url.redirect = ( "" => "https://tommyq.cz/" )
         }
     }

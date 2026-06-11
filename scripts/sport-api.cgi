@@ -16,6 +16,13 @@ if [ "$REQ_TOKEN" != "$ADMIN_TOKEN" ] && [ "$REQ_TOKEN" != "$PUB_TOKEN" ]; then
     exit 0
 fi
 
+# Validate ID (only alphanumeric, dash, underscore allowed)
+if [ -n "$ID" ]; then
+    case "$ID" in
+        *[!a-zA-Z0-9_-]*) echo '{"error":"invalid id"}'; exit 0 ;;
+    esac
+fi
+
 if [ -z "$ID" ]; then
     # List all activities
     python3 - /srv/tommyq/sport/activities << 'PYLIST'
