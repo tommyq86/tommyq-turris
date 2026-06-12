@@ -150,6 +150,7 @@ PYTHON_SPORT="$SCRIPT_DIR/../tommyq-python/sport"
 PYTHON_COMMON="$SCRIPT_DIR/../tommyq-python/common"
 ssh "$TURRIS_HOST" "mkdir -p /root/sport /root/common"
 scp "$PYTHON_SPORT/bryton.py" "$TURRIS_HOST:/root/sport/"
+scp "$PYTHON_SPORT/import_activity.py" "$TURRIS_HOST:/root/sport/"
 scp "$PYTHON_COMMON"/*.py "$TURRIS_HOST:/root/common/"
 # Install websocket module if missing
 ssh "$TURRIS_HOST" "python3 -c 'import websocket' 2>/dev/null" || {
@@ -160,6 +161,11 @@ ssh "$TURRIS_HOST" "python3 -c 'import websocket' 2>/dev/null" || {
 ssh "$TURRIS_HOST" "python3 -c 'import garmin_fit_sdk' 2>/dev/null" || {
     FITPATH=$(python3 -c "import garmin_fit_sdk, os; print(os.path.dirname(garmin_fit_sdk.__file__))")
     scp -r "$FITPATH" "$TURRIS_HOST:/usr/lib/python3.11/site-packages/"
+}
+# Install fitparse if missing (for import_activity.py)
+ssh "$TURRIS_HOST" "python3 -c 'import fitparse' 2>/dev/null" || {
+    FPPATH=$(python3 -c "import fitparse, os; print(os.path.dirname(fitparse.__file__))")
+    scp -r "$FPPATH" "$TURRIS_HOST:/usr/lib/python3.11/site-packages/"
 }
 # Deploy configs if not present
 ssh "$TURRIS_HOST" "mkdir -p /root/.tommyq"

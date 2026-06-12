@@ -54,6 +54,20 @@ for ID in $ACTIVITIES; do
 done
 fi
 
+# Process imported FIT/GPX files (from Zwift, Metacycle, etc.)
+IMPORT_SCRIPT="/root/sport/import_activity.py"
+if [ -f "$IMPORT_SCRIPT" ]; then
+    for FILE in "$ACTIVITIES_DIR"/*.fit "$ACTIVITIES_DIR"/*.gpx; do
+        [ -f "$FILE" ] || continue
+        BASE=$(basename "$FILE")
+        ID="${BASE%.*}"
+        # Skip Bryton FIT files (numeric IDs already have HTML)
+        case "$ID" in [0-9][0-9][0-9][0-9][0-9]*) continue ;; esac
+        [ -f "$ACTIVITIES_DIR/${ID}.html" ] && continue
+        python3 "$IMPORT_SCRIPT" -o "$ACTIVITIES_DIR/${ID}.html" "$FILE" 2>/dev/null || true
+    done
+fi
+
 # Generate JSON files from HTML
 python3 - "$ACTIVITIES_DIR" "$PUBLIC_TOKEN" << 'PYJSON'
 import sys, re, json
