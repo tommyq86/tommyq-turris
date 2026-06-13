@@ -16,7 +16,7 @@ if [ "$1" = "list-only" ]; then
 elif [ "$1" = "all" ]; then
     LIST_OUTPUT=$(python3 "$BRYTON" list 2>/dev/null)
 else
-    LIST_OUTPUT=$(python3 "$BRYTON" list -n 20 2>/dev/null)
+    LIST_OUTPUT=$(python3 "$BRYTON" list 2>/dev/null)
 fi
 
 if [ "$1" != "list-only" ]; then
