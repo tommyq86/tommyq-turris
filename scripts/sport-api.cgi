@@ -23,6 +23,15 @@ if [ -n "$ID" ]; then
     esac
 fi
 
+if [ "$ID" = "refresh-status" ]; then
+    if [ -f /tmp/sport-refresh-done ]; then
+        echo '{"done":true}'
+    else
+        echo '{"done":false}'
+    fi
+    exit 0
+fi
+
 if [ -z "$ID" ]; then
     # List all activities
     python3 - /srv/tommyq/sport/activities << 'PYLIST'
