@@ -94,7 +94,7 @@ echo ""
 # 5. Deploy dashboard
 echo "5. Deploying dashboard..."
 ssh "$TURRIS_HOST" "mkdir -p /www/tommyq"
-scp "$SCRIPT_DIR/www/"* "$TURRIS_HOST:/www/tommyq/"
+scp -r "$SCRIPT_DIR/www/"* "$TURRIS_HOST:/www/tommyq/"
 echo "  ✓ Dashboard deployed"
 echo ""
 
