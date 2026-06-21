@@ -180,6 +180,7 @@ for cgi in "$SCRIPT_DIR/scripts"/sport-*.cgi; do
 done
 # Setup cron
 ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q generate-sport-maps || (crontab -l 2>/dev/null; echo '0 6 * * * /root/scripts/generate-sport-maps.sh >/dev/null 2>&1') | crontab -"
+ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q turris-new-device-alert || (crontab -l 2>/dev/null; echo '*/5 * * * * /root/scripts/turris-new-device-alert.sh >/dev/null 2>&1') | crontab -"
 echo "  ✓ Sport service deployed"
 echo ""
 
