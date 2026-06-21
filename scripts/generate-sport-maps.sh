@@ -49,6 +49,10 @@ PYCACHE
 rm -f "$LIST_TMP"
 
 for ID in $ACTIVITIES; do
+    # Skip excluded IDs (e.g. merged activities)
+    if [ -f "$SPORT_DIR/.exclude" ] && grep -qx "$ID" "$SPORT_DIR/.exclude"; then
+        continue
+    fi
     [ -f "$ACTIVITIES_DIR/${ID}.html" ] || python3 "$BRYTON" -o "$ACTIVITIES_DIR/${ID}.html" map "$ID" 2>/dev/null || true
     [ -f "$ACTIVITIES_DIR/${ID}.fit" ] || python3 "$BRYTON" -o "$ACTIVITIES_DIR/${ID}.fit" download "$ID" 2>/dev/null || true
 done
