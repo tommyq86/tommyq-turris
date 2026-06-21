@@ -72,6 +72,35 @@ if [ -f "$IMPORT_SCRIPT" ]; then
     done
 fi
 
+# Cache duration for imported FIT files not in activity_cache
+python3 - "$ACTIVITIES_DIR" "$SPORT_DIR/.activity_cache.json" << 'PYFIT'
+import sys, json
+from pathlib import Path
+activities_dir = Path(sys.argv[1])
+cache_path = Path(sys.argv[2])
+try:
+    cache = json.loads(cache_path.read_text())
+except (FileNotFoundError, json.JSONDecodeError):
+    cache = {}
+try:
+    import fitparse
+    for f in activities_dir.glob("*.fit"):
+        aid = f.stem
+        if aid in cache:
+            continue
+        fit = fitparse.FitFile(str(f))
+        for msg in fit.get_messages():
+            if msg.name == "session":
+                for field in msg.fields:
+                    if field.name == "total_elapsed_time" and field.value:
+                        cache[aid] = int(field.value)
+                        break
+                break
+    cache_path.write_text(json.dumps(cache))
+except ImportError:
+    pass
+PYFIT
+
 # Generate JSON files from HTML
 python3 - "$ACTIVITIES_DIR" "$PUBLIC_TOKEN" << 'PYJSON'
 import sys, re, json
