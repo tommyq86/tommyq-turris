@@ -108,6 +108,10 @@ ssh "$TURRIS_HOST" "uci set resolver.kresd=kresd; uci set resolver.kresd.include
 echo "  ✓ Updater config deployed"
 echo "  ✓ Knot Resolver config deployed"
 
+# Deploy /etc/hosts (used by kresd hints for LAN hostname resolution)
+scp "$SCRIPT_DIR/system/hosts" "$TURRIS_HOST:/etc/hosts"
+echo "  ✓ Hosts file deployed"
+
 # Deploy dnsmasq local domains (fallback, kresd handles DNS via hints)
 ssh "$TURRIS_HOST" "mkdir -p /etc/dnsmasq.d"
 scp "$SCRIPT_DIR/system/dnsmasq-local-domains.conf" "$TURRIS_HOST:/etc/dnsmasq.d/local-domains.conf"
