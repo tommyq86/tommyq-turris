@@ -32,6 +32,15 @@ if [ "$ID" = "refresh-status" ]; then
     exit 0
 fi
 
+if [ "$ID" = "check-admin" ]; then
+    if [ "$REQ_TOKEN" = "$ADMIN_TOKEN" ]; then
+        echo '{"admin":true}'
+    else
+        echo '{"admin":false}'
+    fi
+    exit 0
+fi
+
 if [ -z "$ID" ]; then
     # List all activities
     python3 - /srv/tommyq/sport/activities << 'PYLIST'

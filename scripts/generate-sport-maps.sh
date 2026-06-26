@@ -1,5 +1,5 @@
 #!/bin/bash
-# Generate sport activity maps - runs locally on Turris
+# Generate sport activity JSON data files and index page
 set -e
 
 BRYTON="/root/sport/bryton.py"
@@ -10,22 +10,15 @@ TOKEN_FILE="/root/.tommyq/sport-token.conf"
 source "$TOKEN_FILE"
 mkdir -p "$ACTIVITIES_DIR"
 
-# Generate maps for activities and cache metadata
-if [ "$1" = "list-only" ]; then
-    : # Skip fetching, just regenerate index
-elif [ "$1" = "all" ]; then
-    LIST_OUTPUT=$(python3 "$BRYTON" list 2>/dev/null)
-else
-    LIST_OUTPUT=$(python3 "$BRYTON" list 2>/dev/null)
-fi
-
+# Fetch activities from Bryton
 if [ "$1" != "list-only" ]; then
-ACTIVITIES=$(echo "$LIST_OUTPUT" | tail -n +3 | awk '{print $1}')
+    LIST_OUTPUT=$(python3 "$BRYTON" list 2>/dev/null)
+    ACTIVITIES=$(echo "$LIST_OUTPUT" | tail -n +3 | awk '{print $1}')
 
-# Save duration cache (ID -> elapsed seconds) from list output
-LIST_TMP=$(mktemp)
-echo "$LIST_OUTPUT" > "$LIST_TMP"
-python3 - "$SPORT_DIR/.activity_cache.json" "$LIST_TMP" << 'PYCACHE'
+    # Cache durations from list output
+    LIST_TMP=$(mktemp)
+    echo "$LIST_OUTPUT" > "$LIST_TMP"
+    python3 - "$SPORT_DIR/.activity_cache.json" "$LIST_TMP" << 'PYCACHE'
 import sys, json, re
 cache_path = sys.argv[1]
 lines = open(sys.argv[2]).read().strip().split('\n')[2:]
@@ -34,8 +27,7 @@ for line in lines:
     parts = line.split()
     if len(parts) >= 5:
         aid = parts[0]
-        dur = parts[-1]
-        m = re.match(r'(\d+):(\d+):(\d+)', dur)
+        m = re.match(r'(\d+):(\d+):(\d+)', parts[-1])
         if m:
             cache[aid] = int(m.group(1))*3600 + int(m.group(2))*60 + int(m.group(3))
 try:
@@ -46,34 +38,31 @@ except (FileNotFoundError, json.JSONDecodeError):
     pass
 open(cache_path, 'w').write(json.dumps(cache))
 PYCACHE
-rm -f "$LIST_TMP"
+    rm -f "$LIST_TMP"
 
-for ID in $ACTIVITIES; do
-    # Skip excluded IDs (e.g. merged activities)
-    if [ -f "$SPORT_DIR/.exclude" ] && grep -qx "$ID" "$SPORT_DIR/.exclude"; then
-        continue
-    fi
-    [ -f "$ACTIVITIES_DIR/${ID}.html" ] || python3 "$BRYTON" -o "$ACTIVITIES_DIR/${ID}.html" map "$ID" 2>/dev/null || true
-    [ -f "$ACTIVITIES_DIR/${ID}.fit" ] || python3 "$BRYTON" -o "$ACTIVITIES_DIR/${ID}.fit" download "$ID" 2>/dev/null || true
-done
-fi
-
-# Process imported FIT/GPX files (from Zwift, Metacycle, etc.)
-IMPORT_SCRIPT="/root/sport/import_activity.py"
-if [ -f "$IMPORT_SCRIPT" ]; then
-    for FILE in "$ACTIVITIES_DIR"/*.fit "$ACTIVITIES_DIR"/*.gpx; do
-        [ -f "$FILE" ] || continue
-        BASE=$(basename "$FILE")
-        ID="${BASE%.*}"
-        # Skip Bryton FIT files (numeric IDs already have HTML)
-        case "$ID" in [0-9][0-9][0-9][0-9][0-9]*) continue ;; esac
-        [ -f "$ACTIVITIES_DIR/${ID}.html" ] && continue
-        python3 "$IMPORT_SCRIPT" -o "$ACTIVITIES_DIR/${ID}.html" "$FILE" 2>/dev/null || true
+    for ID in $ACTIVITIES; do
+        if [ -f "$SPORT_DIR/.exclude" ] && grep -qx "$ID" "$SPORT_DIR/.exclude"; then
+            continue
+        fi
+        [ -f "$ACTIVITIES_DIR/${ID}.html" ] || python3 "$BRYTON" -o "$ACTIVITIES_DIR/${ID}.html" map "$ID" 2>/dev/null || true
+        [ -f "$ACTIVITIES_DIR/${ID}.fit" ] || python3 "$BRYTON" -o "$ACTIVITIES_DIR/${ID}.fit" download "$ID" 2>/dev/null || true
     done
-fi
 
-# Cache duration for imported FIT files not in activity_cache
-python3 - "$ACTIVITIES_DIR" "$SPORT_DIR/.activity_cache.json" << 'PYFIT'
+    # Process imported FIT/GPX files
+    IMPORT_SCRIPT="/root/sport/import_activity.py"
+    if [ -f "$IMPORT_SCRIPT" ]; then
+        for FILE in "$ACTIVITIES_DIR"/*.fit "$ACTIVITIES_DIR"/*.gpx; do
+            [ -f "$FILE" ] || continue
+            BASE=$(basename "$FILE")
+            ID="${BASE%.*}"
+            case "$ID" in [0-9][0-9][0-9][0-9][0-9]*) continue ;; esac
+            [ -f "$ACTIVITIES_DIR/${ID}.html" ] && continue
+            python3 "$IMPORT_SCRIPT" -o "$ACTIVITIES_DIR/${ID}.html" "$FILE" 2>/dev/null || true
+        done
+    fi
+
+    # Cache duration for imported FIT files
+    python3 - "$ACTIVITIES_DIR" "$SPORT_DIR/.activity_cache.json" << 'PYFIT'
 import sys, json
 from pathlib import Path
 activities_dir = Path(sys.argv[1])
@@ -100,98 +89,48 @@ try:
 except ImportError:
     pass
 PYFIT
+fi
 
-# Generate JSON files from HTML
-python3 - "$ACTIVITIES_DIR" "$PUBLIC_TOKEN" "$TOKEN" << 'PYJSON'
+# Generate JSON from HTML source files
+python3 - "$ACTIVITIES_DIR" << 'PYJSON'
 import sys, re, json
 from pathlib import Path
 activities_dir = Path(sys.argv[1])
-public_token = sys.argv[2]
-admin_token = sys.argv[3]
 for f in activities_dir.glob("*.html"):
+    json_path = f.with_suffix('.json')
+    if json_path.exists() and json_path.stat().st_mtime >= f.stat().st_mtime:
+        continue
     content = f.read_text()
-    # Inject/update share buttons
-    share_html = f'''<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-<div id="shareBar" style="position:fixed;top:8px;right:8px;display:flex;gap:4px;z-index:9999">
-<button onclick="navigator.clipboard.writeText(location.href).then(()=>this.textContent='✓')" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Kopírovat odkaz">🔗</button>
-<button onclick="copyOverview(this)" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Kopírovat přehled">📊</button>
-<button onclick="exportPng(this)" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Stáhnout mapu jako PNG">🖼️</button>
-<button onclick="exportGpx()" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Stáhnout GPX trasu">📥 GPX</button>
-<a href="{f.stem}.fit" download id="fitBtn" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem;text-decoration:none;display:none" title="Stáhnout FIT">📥 FIT</a>
-<button id="renameBtn" onclick="renameActivity()" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem;display:none" title="Přejmenovat">✏️</button>
-</div>
-<script>
-if(location.search.includes('token={admin_token}')){{document.getElementById('fitBtn').style.display='';document.getElementById('renameBtn').style.display='';}}
-function exportGpx(){{
-  var pts=typeof coords!=='undefined'?coords:[];
-  if(!pts.length)return;
-  var trkpts=pts.map(function(c){{return '<trkpt lat="'+c[0]+'" lon="'+c[1]+'"></trkpt>'}}).join('\\n');
-  var gpx='<?xml version="1.0" encoding="UTF-8"?>\\n<gpx version="1.1" creator="tommyq.cz">\\n<trk><name>'+document.title+'</name><trkseg>\\n'+trkpts+'\\n</trkseg></trk></gpx>';
-  var b=new Blob([gpx],{{type:'application/gpx+xml'}});
-  var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=document.title.replace(/[^a-zA-Z0-9_-]/g,'_')+'.gpx';a.click();
-}}
-function renameActivity(){{
-  var name=prompt('Nový název aktivity:',document.querySelector('h1').textContent);
-  if(!name)return;
-  var token=new URLSearchParams(location.search).get('token');
-  fetch('../cgi/rename.cgi?token='+token+'&id={f.stem}&name='+encodeURIComponent(name))
-    .then(function(r){{return r.json()}}).then(function(d){{
-      if(d.status==='renamed'){{document.querySelector('h1').textContent=name;document.title=name;}}
-    }});
-}}
-</script>
-<script>
-function copyOverview(btn) {{
-  btn.disabled = true; btn.textContent = '⏳';
-  var token = new URLSearchParams(location.search).get('token');
-  fetch('../cgi/overview.cgi?token=' + token + '&id={f.stem}')
-    .then(r => r.json()).then(d => {{
-      var text = d.title + '\\n' + d.date + '\\n\\n' + d.fields.map(f => f.label + ': ' + f.value).join('\\n');
-      return navigator.clipboard.writeText(text);
-    }}).then(() => {{ btn.textContent = '✓'; btn.disabled = false; setTimeout(() => btn.textContent = '📊', 1500); }})
-    .catch(() => {{ btn.textContent = '✗'; btn.disabled = false; setTimeout(() => btn.textContent = '📊', 1500); }});
-}}
-function exportPng(btn) {{
-  btn.disabled = true; btn.textContent = '⏳';
-  document.getElementById('shareBar').style.display = 'none';
-  map.invalidateSize();
-  setTimeout(function() {{
-    // Fix html2canvas + Leaflet: convert transform to top/left
-    document.querySelectorAll('.leaflet-tile-container').forEach(function(c) {{
-      var t = c.style.transform;
-      var m = t.match(/translate3d\\((.+?)px,\\s*(.+?)px/);
-      if (m) {{ c.style.transform = 'none'; c.style.left = m[1] + 'px'; c.style.top = m[2] + 'px'; }}
-    }});
-    document.querySelectorAll('.leaflet-overlay-pane canvas, .leaflet-overlay-pane svg').forEach(function(el) {{
-      var t = el.style.transform;
-      var m = t && t.match(/translate3d\\((.+?)px,\\s*(.+?)px/);
-      if (m) {{ el.style.transform = 'none'; el.style.left = m[1] + 'px'; el.style.top = m[2] + 'px'; }}
-    }});
-    html2canvas(document.body, {{useCORS:true, allowTaint:false, scrollX:0, scrollY:0}}).then(function(canvas) {{
-      var a = document.createElement('a');
-      a.download = document.title.replace(/[^a-zA-Z0-9_-]/g,'_') + '.png';
-      a.href = canvas.toDataURL('image/png');
-      a.click();
-      btn.textContent = '🖼️'; btn.disabled = false;
-    }}).catch(function() {{ btn.textContent = '✗'; btn.disabled = false; }})
-    .finally(function() {{
-      document.getElementById('shareBar').style.display = '';
-      map.invalidateSize();
-    }});
-  }}, 300);
-}}
-</script>'''
-    # Remove old shareBar and functions if present, then inject new
-    import re as _re
-    content = _re.sub(r'<script src="https://cdn\.jsdelivr\.net/npm/html2canvas.*?</script>', '', content, flags=_re.DOTALL)
-    content = _re.sub(r'<div id="shareBar".*?</div>', '', content, flags=_re.DOTALL)
-    content = _re.sub(r'<script>\s*function (exportPng|copyOverview).*?</script>', '', content, flags=_re.DOTALL)
-    content = _re.sub(r'<script>\s*if\(location\.search.*?</script>', '', content, flags=_re.DOTALL)
-    # Ensure preferCanvas is set on map
-    content = content.replace("L.map('map')", "L.map('map', {preferCanvas: true})")
-    content = content.replace("L.map('map', {preferCanvas: true}, {preferCanvas: true})", "L.map('map', {preferCanvas: true})")
-    content = content.replace('</body>', share_html + '</body>')
-    f.write_text(content)
+    def extract(name):
+        m = re.search(rf'const {name} = (\[.*?\]);', content, re.DOTALL)
+        if m:
+            try: return json.loads(m.group(1))
+            except: return []
+        return []
+    title_m = re.search(r'<title>(.*?)</title>', content)
+    h1_m = re.search(r'<h1>(.*?)</h1>', content)
+    sub_m = re.search(r'class="subtitle">(.*?)</div>', content)
+    title = title_m.group(1) if title_m else f.stem
+    name = h1_m.group(1) if h1_m else title.split(' - ')[0] if ' - ' in title else title
+    # Extract date from subtitle or title
+    date_str = ''
+    if sub_m:
+        parts = sub_m.group(1).split(' · ')
+        date_str = parts[0] if parts else ''
+    elif ' - ' in title:
+        date_str = title.split(' - ', 1)[1]
+    data = {
+        "name": name,
+        "date_str": date_str,
+        "subtitle": sub_m.group(1) if sub_m else '',
+        "coords": extract("coords"),
+        "dist": extract("dist"),
+        "alt": extract("alt"),
+        "spd": extract("spd"),
+        "hr": extract("hr"),
+        "grad": extract("grad"),
+    }
+    json_path.write_text(json.dumps(data))
 PYJSON
 
 # Generate index page
@@ -202,41 +141,29 @@ from pathlib import Path
 activities_dir = Path(sys.argv[1])
 token = sys.argv[2]
 public_token = sys.argv[3]
-files = sorted(activities_dir.glob("*.html"), key=lambda f: f.stat().st_mtime, reverse=True)
+files = sorted(activities_dir.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True)
 
 rows = []
 total_km = 0.0
 total_seconds = 0
-for f in files:
-    content = f.read_text()
-    m = re.search(r'<title>(.*?)</title>', content)
-    title = m.group(1) if m else f.stem
-    # Extract distance from last value of dist array
-    dm = re.search(r'const dist = (\[.*?\]);', content)
-    dist_km = 0.0
-    if dm:
-        try:
-            dist_arr = json.loads(dm.group(1))
-            if dist_arr:
-                dist_km = dist_arr[-1]
-        except (json.JSONDecodeError, IndexError):
-            pass
-    rows.append((f.stem, title, dist_km))
-    total_km += dist_km
 
-# Try to get duration from bryton list cache if available
 durations = {}
 cache_file = activities_dir.parent / ".activity_cache.json"
 if cache_file.exists():
-    try:
-        cache = json.loads(cache_file.read_text())
-        durations = {k: v for k, v in cache.items()}
-    except (json.JSONDecodeError, KeyError):
-        pass
+    try: durations = json.loads(cache_file.read_text())
+    except: pass
+
+for f in files:
+    data = json.loads(f.read_text())
+    aid = f.stem
+    title = data.get("name", aid)
+    date_str = data.get("date_str", "")
+    dist_km = data["dist"][-1] if data.get("dist") else 0.0
+    rows.append((aid, f"{title} - {date_str}" if date_str else title, dist_km))
+    total_km += dist_km
 
 rows.sort(key=lambda r: r[1], reverse=True)
 
-# Compute total time
 for aid, _, _ in rows:
     if aid in durations:
         total_seconds += durations[aid]
@@ -258,9 +185,8 @@ a {{ color: #ff6b35; text-decoration: none; display: flex; justify-content: spac
 a:hover {{ background: rgba(255,255,255,0.1); }}
 .meta {{ color: #aaa; font-size: 0.85rem; white-space: nowrap; margin-left: 1rem; }}
 .row {{ display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }}
-.share {{ background: none; border: none; color: #aaa; cursor: pointer; padding: 0.4rem; font-size: 1.1rem; border-radius: 4px; display: none; }}
+.share,.del {{ background: none; border: none; color: #aaa; cursor: pointer; padding: 0.4rem; font-size: 1.1rem; border-radius: 4px; display: none; }}
 .share:hover {{ color: #fff; background: rgba(255,255,255,0.1); }}
-.del {{ background: none; border: none; color: #aaa; cursor: pointer; padding: 0.4rem; font-size: 1.1rem; border-radius: 4px; display: none; }}
 .del:hover {{ color: #ff4444; background: rgba(255,68,68,0.1); }}
 .overview {{ background: none; border: none; color: #aaa; cursor: pointer; padding: 0.4rem; font-size: 1.1rem; border-radius: 4px; }}
 .overview:hover {{ color: #fff; background: rgba(255,255,255,0.1); }}
@@ -282,8 +208,8 @@ for aid, title, dist_km in rows:
     if aid in durations:
         dur_str = f" · {fmt_time(durations[aid])}"
     meta = f"{dist_km:.1f} km{dur_str}" if dist_km > 0 else ""
-    share_url = f"activities/{aid}.html?token={public_token}"
-    html += f'<div class="row"><button class="del" onclick="del(this,\'{aid}\')" title="Smazat">🗑️</button><button class="share" onclick="share(this,\'{share_url}\')" title="Kopírovat odkaz">🔗</button><button class="overview" onclick="overview(this,\'{aid}\')" title="Přehled">📊</button><a href="{share_url}"><span>{title}</span><span class="meta">{meta}</span></a></div>\n'
+    activity_url = f"activity.html?id={aid}&token={public_token}"
+    html += f'<div class="row"><button class="del" onclick="del(this,\'{aid}\')" title="Smazat">🗑️</button><button class="share" onclick="share(this,\'activity.html?id={aid}&token={public_token}\')" title="Kopírovat odkaz">🔗</button><button class="overview" onclick="overview(this,\'{aid}\')" title="Přehled">📊</button><a href="{activity_url}"><span>{title}</span><span class="meta">{meta}</span></a></div>\n'
 html += """</div>
 <script>
 var isAdmin = location.search.includes('token=""" + token + """');
@@ -294,10 +220,11 @@ if (isAdmin) {
   document.getElementById('deleteAllBtn').style.display = '';
   document.querySelectorAll('.share').forEach(b => b.style.display = 'inline-block');
   document.querySelectorAll('.del').forEach(b => b.style.display = 'inline-block');
+  // Fix activity links to use admin token
+  document.querySelectorAll('.list a').forEach(a => a.href = a.href.replace('token=""" + public_token + """', 'token=""" + token + """'));
 }
 function share(btn, path) {
-  var url = location.origin + '/sport/' + path;
-  navigator.clipboard.writeText(url).then(() => {
+  navigator.clipboard.writeText(location.origin + '/sport/' + path).then(() => {
     btn.textContent = '✓'; setTimeout(() => btn.textContent = '🔗', 1500);
   });
 }
@@ -307,9 +234,8 @@ function overview(btn, id) {
     .then(r => r.json()).then(d => {
       var text = d.title + '\\n' + d.date + '\\n\\n' + d.fields.map(f => f.label + ': ' + f.value).join('\\n');
       return navigator.clipboard.writeText(text);
-    }).then(() => {
-      btn.textContent = '✓'; setTimeout(() => btn.textContent = '📊', 1500);
-    }).catch(() => { btn.textContent = '✗'; setTimeout(() => btn.textContent = '📊', 1500); });
+    }).then(() => { btn.textContent = '✓'; setTimeout(() => btn.textContent = '📊', 1500); })
+    .catch(() => { btn.textContent = '✗'; setTimeout(() => btn.textContent = '📊', 1500); });
 }
 function del(btn, id) {
   if (!confirm('Smazat aktivitu?')) return;
@@ -328,10 +254,7 @@ function refresh(btn) {
   fetch('cgi/refresh.cgi?' + location.search.slice(1)).then(function() {
     var poll = setInterval(function() {
       fetch('cgi/api.cgi?token=' + reqToken + '&id=refresh-status').then(r => r.json()).then(function(s) {
-        if (s.done) {
-          clearInterval(poll);
-          location.reload();
-        }
+        if (s.done) { clearInterval(poll); location.reload(); }
       });
     }, 3000);
   }).catch(() => { btn.textContent = '✗ Chyba'; btn.disabled = false; });

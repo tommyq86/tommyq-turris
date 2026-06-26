@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Aktivita</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+body { font-family: system-ui, sans-serif; margin: 0; padding: 8px; background: #1a1a2e; color: #eee; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+h1 { margin: 0 0 2px; font-size: 1.2em; }
+.subtitle { color: #aaa; margin-bottom: 6px; font-size: 0.9em; }
+#map { flex: 5; border-radius: 8px; min-height: 0; touch-action: none; }
+.chart-box { flex: 1; background: #16213e; border-radius: 8px; padding: 8px; margin-top: 8px; min-height: 100px; display: flex; }
+#comboChart { width: 100% !important; height: 100% !important; }
+#shareBar { position: fixed; top: 8px; right: 8px; display: flex; gap: 4px; z-index: 9999; }
+#shareBar button, #shareBar a { background: #ff6b35; border: none; color: #fff; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 1rem; text-decoration: none; }
+.admin-only { display: none; }
+@media (max-width: 768px) { .chart-box { min-height: 140px; flex: 2; padding: 4px; } }
+</style></head><body>
+<h1 id="title">Načítám...</h1>
+<div class="subtitle" id="subtitle"></div>
+<div id="map"></div>
+<div class="chart-box"><canvas id="comboChart"></canvas></div>
+<div id="shareBar">
+<button onclick="navigator.clipboard.writeText(location.href).then(()=>this.textContent='✓')" title="Kopírovat odkaz">🔗</button>
+<button onclick="copyOverview()" title="Kopírovat přehled">📊</button>
+<button onclick="exportPng(this)" title="Stáhnout PNG">🖼️</button>
+<button onclick="exportGpx()" title="Stáhnout GPX trasu">📥 GPX</button>
+<a id="fitBtn" class="admin-only" title="Stáhnout FIT">📥 FIT</a>
+<button id="renameBtn" class="admin-only" onclick="renameActivity()" title="Přejmenovat">✏️</button>
+</div>
+<script>
+var params = new URLSearchParams(location.search);
+var id = params.get('id');
+var token = params.get('token');
+var map, coords;
+
+fetch('activities/' + id + '.json?t=' + Date.now())
+.then(r => r.json())
+.then(function(d) {
+  document.title = d.name + ' - ' + d.date_str;
+  document.getElementById('title').textContent = d.name;
+  document.getElementById('subtitle').textContent = d.subtitle;
+  document.getElementById('fitBtn').href = 'activities/' + id + '.fit';
+  document.getElementById('fitBtn').download = '';
+  coords = d.coords;
+
+  // Admin features
+  fetch('cgi/api.cgi?token=' + token + '&id=check-admin')
+  .then(r => r.json()).then(function(r) {
+    if (r.admin) document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+  }).catch(function(){});
+
+  // Map
+  if (d.coords && d.coords.length) {
+    map = L.map('map', {preferCanvas: true}).fitBounds(L.polyline(d.coords).getBounds().pad(0.05));
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '&copy; OSM'}).addTo(map);
+    L.polyline(d.coords, {color: '#ff6b35', weight: 3}).addTo(map);
+    L.circleMarker(d.coords[0], {radius: 6, color: '#2ecc71', fillOpacity: 1}).addTo(map).bindPopup('Start');
+    L.circleMarker(d.coords[d.coords.length-1], {radius: 6, color: '#e74c3c', fillOpacity: 1}).addTo(map).bindPopup('Finish');
+  } else {
+    document.getElementById('map').style.display = 'none';
+  }
+
+  // Chart
+  var posMarker = L.circleMarker([0,0], {radius: 8, color: '#fff', weight: 3, fillColor: '#ff6b35', fillOpacity: 1});
+  var step = Math.max(1, Math.floor((d.coords||[]).length / (d.dist||[]).length)) || 1;
+  new Chart(document.getElementById('comboChart'), {
+    type: 'line',
+    data: {
+      labels: d.dist.map(v => v.toFixed(2)),
+      datasets: [
+        { label: 'Nadm. výška (m)', data: d.alt, borderColor: '#f39c12', backgroundColor: '#f39c1233', borderWidth: 1.5, pointRadius: 0, fill: true, yAxisID: 'yAlt', spanGaps: true },
+        { label: 'Rychlost (km/h)', data: d.spd, borderColor: '#3498db', borderWidth: 1.5, pointRadius: 0, fill: false, yAxisID: 'ySpd', spanGaps: true },
+        { label: 'TF (bpm)', data: d.hr, borderColor: '#e74c3c', borderWidth: 1.5, pointRadius: 0, fill: false, yAxisID: 'yHr', spanGaps: true },
+        { label: 'Sklon (%)', data: d.grad, borderColor: 'transparent', borderWidth: 0, pointRadius: 0, fill: false, yAxisID: 'yHr', spanGaps: true, hidden: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: { title: { display: false }, ticks: { color: '#888', maxTicksLimit: 8 } },
+        yAlt: { type: 'linear', position: 'left', ticks: { color: '#f39c12', maxTicksLimit: 5 }, grid: { color: '#333' } },
+        ySpd: { type: 'linear', position: 'right', display: window.innerWidth > 768, ticks: { color: '#3498db' }, grid: { drawOnChartArea: false } },
+        yHr: { type: 'linear', position: 'right', display: window.innerWidth > 768, ticks: { color: '#e74c3c' }, grid: { drawOnChartArea: false } }
+      },
+      plugins: {
+        legend: { display: window.innerWidth > 768, labels: { color: '#eee', filter: item => !item.text.includes('%') } },
+        tooltip: { callbacks: { title: items => items[0].label + ' km' } }
+      },
+      onHover: function(event, elements, chart) {
+        var points = chart.getElementsAtEventForMode(event, 'index', { intersect: false }, true);
+        if (points.length && map && d.coords.length) {
+          var idx = Math.min(points[0].index * step, d.coords.length - 1);
+          posMarker.setLatLng(d.coords[idx]);
+          if (!map.hasLayer(posMarker)) posMarker.addTo(map);
+        } else if (map) { map.removeLayer(posMarker); }
+      }
+    }
+  });
+  document.getElementById('comboChart').addEventListener('mouseleave', function() { if (map) map.removeLayer(posMarker); });
+}).catch(function() {
+  document.getElementById('title').textContent = 'Aktivita nenalezena';
+});
+
+function copyOverview() {
+  var btn = document.querySelector('[title="Kopírovat přehled"]');
+  btn.textContent = '⏳';
+  fetch('cgi/overview.cgi?token=' + token + '&id=' + id)
+    .then(r => r.json()).then(function(d) {
+      var text = d.title + '\n' + d.date + '\n\n' + d.fields.map(f => f.label + ': ' + f.value).join('\n');
+      return navigator.clipboard.writeText(text);
+    }).then(function() { btn.textContent = '✓'; setTimeout(()=>btn.textContent='📊', 1500); })
+    .catch(function() { btn.textContent = '✗'; setTimeout(()=>btn.textContent='📊', 1500); });
+}
+function exportGpx() {
+  if (!coords || !coords.length) return;
+  var trkpts = coords.map(c => '<trkpt lat="'+c[0]+'" lon="'+c[1]+'"></trkpt>').join('\n');
+  var gpx = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="tommyq.cz">\n<trk><name>'+document.title+'</name><trkseg>\n'+trkpts+'\n</trkseg></trk></gpx>';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([gpx], {type:'application/gpx+xml'}));
+  a.download = document.title.replace(/[^a-zA-Z0-9_-]/g,'_') + '.gpx';
+  a.click();
+}
+function exportPng(btn) {
+  btn.disabled = true; btn.textContent = '⏳';
+  document.getElementById('shareBar').style.display = 'none';
+  if (map) map.invalidateSize();
+  setTimeout(function() {
+    document.querySelectorAll('.leaflet-tile-container').forEach(function(c) {
+      var t = c.style.transform, m = t.match(/translate3d\((.+?)px,\s*(.+?)px/);
+      if (m) { c.style.transform = 'none'; c.style.left = m[1]+'px'; c.style.top = m[2]+'px'; }
+    });
+    document.querySelectorAll('.leaflet-overlay-pane canvas, .leaflet-overlay-pane svg').forEach(function(el) {
+      var t = el.style.transform, m = t && t.match(/translate3d\((.+?)px,\s*(.+?)px/);
+      if (m) { el.style.transform = 'none'; el.style.left = m[1]+'px'; el.style.top = m[2]+'px'; }
+    });
+    html2canvas(document.body, {useCORS:true, allowTaint:false, scrollX:0, scrollY:0}).then(function(canvas) {
+      var a = document.createElement('a');
+      a.download = document.title.replace(/[^a-zA-Z0-9_-]/g,'_') + '.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      btn.textContent = '🖼️'; btn.disabled = false;
+    }).catch(function() { btn.textContent = '✗'; btn.disabled = false; })
+    .finally(function() { document.getElementById('shareBar').style.display = ''; if (map) map.invalidateSize(); });
+  }, 300);
+}
+function renameActivity() {
+  var name = prompt('Nový název aktivity:', document.getElementById('title').textContent);
+  if (!name) return;
+  fetch('cgi/rename.cgi?token=' + token + '&id=' + id + '&name=' + encodeURIComponent(name))
+    .then(r => r.json()).then(function(d) {
+      if (d.status === 'renamed') { document.getElementById('title').textContent = name; document.title = name; }
+    });
+}
+</script></body></html>

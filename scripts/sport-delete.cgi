@@ -22,6 +22,7 @@ if [ "$ID" = "all" ]; then
     rm -f /srv/tommyq/sport/activities/*.html
     rm -f /srv/tommyq/sport/activities/*.json
     rm -f /srv/tommyq/sport/activities/*.fit
+    rm -f /srv/tommyq/sport/activities/*.gpx
     rm -f /srv/tommyq/sport/.activity_cache.json
     /root/scripts/generate-sport-maps.sh list-only >/dev/null 2>&1 &
     echo '{"status":"all deleted"}'
@@ -29,6 +30,7 @@ elif [ -n "$ID" ]; then
     rm -f "/srv/tommyq/sport/activities/${ID}.html"
     rm -f "/srv/tommyq/sport/activities/${ID}.json"
     rm -f "/srv/tommyq/sport/activities/${ID}.fit"
+    rm -f "/srv/tommyq/sport/activities/${ID}.gpx"
     /root/scripts/generate-sport-maps.sh list-only >/dev/null 2>&1 &
     echo "{\"status\":\"deleted\",\"id\":\"$ID\"}"
 else
