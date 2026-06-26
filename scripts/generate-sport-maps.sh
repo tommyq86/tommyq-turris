@@ -159,12 +159,12 @@ for f in files:
     title = data.get("name", aid)
     date_str = data.get("date_str", "")
     dist_km = data["dist"][-1] if data.get("dist") else 0.0
-    rows.append((aid, f"{title} - {date_str}" if date_str else title, dist_km))
+    rows.append((aid, f"{title} - {date_str}" if date_str else title, dist_km, date_str))
     total_km += dist_km
 
-rows.sort(key=lambda r: r[1], reverse=True)
+rows.sort(key=lambda r: r[3], reverse=True)
 
-for aid, _, _ in rows:
+for aid, _, _, _ in rows:
     if aid in durations:
         total_seconds += durations[aid]
 
@@ -203,7 +203,7 @@ button:disabled {{ opacity: 0.5; cursor: wait; }}
 </div>
 <div class="list">
 """
-for aid, title, dist_km in rows:
+for aid, title, dist_km, _ in rows:
     dur_str = ""
     if aid in durations:
         dur_str = f" · {fmt_time(durations[aid])}"
