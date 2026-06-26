@@ -35,7 +35,7 @@ var id = params.get('id');
 var token = params.get('token');
 var map, coords;
 
-fetch('activities/' + id + '.json?t=' + Date.now())
+fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
 .then(r => r.json())
 .then(function(d) {
   document.title = d.name + ' - ' + d.date_str;
