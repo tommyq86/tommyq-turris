@@ -48,7 +48,7 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
   // Admin features
   fetch('cgi/api.cgi?token=' + token + '&id=check-admin')
   .then(r => r.json()).then(function(r) {
-    if (r.admin) document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+    if (r.admin) document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('admin-only'));
   }).catch(function(){});
 
   // Map
