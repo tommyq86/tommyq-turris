@@ -7,7 +7,7 @@ $HTTP["host"] == "tommyq.cz" {
             url.redirect = ( "" => "https://tommyq.cz/" )
         }
     }
-    $HTTP["url"] =~ "^/sport/cgi/(refresh|delete)" {
+    $HTTP["url"] =~ "^/sport/cgi/(refresh|delete|rename)" {
         $HTTP["querystring"] !~ "token=__ADMIN_TOKEN__" {
             url.redirect = ( "" => "https://tommyq.cz/" )
         }

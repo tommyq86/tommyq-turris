@@ -102,11 +102,12 @@ except ImportError:
 PYFIT
 
 # Generate JSON files from HTML
-python3 - "$ACTIVITIES_DIR" "$PUBLIC_TOKEN" << 'PYJSON'
+python3 - "$ACTIVITIES_DIR" "$PUBLIC_TOKEN" "$TOKEN" << 'PYJSON'
 import sys, re, json
 from pathlib import Path
 activities_dir = Path(sys.argv[1])
 public_token = sys.argv[2]
+admin_token = sys.argv[3]
 for f in activities_dir.glob("*.html"):
     content = f.read_text()
     # Inject/update share buttons
@@ -115,7 +116,30 @@ for f in activities_dir.glob("*.html"):
 <button onclick="navigator.clipboard.writeText(location.href).then(()=>this.textContent='✓')" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Kopírovat odkaz">🔗</button>
 <button onclick="copyOverview(this)" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Kopírovat přehled">📊</button>
 <button onclick="exportPng(this)" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Stáhnout mapu jako PNG">🖼️</button>
+<button onclick="exportGpx()" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem" title="Stáhnout GPX trasu">📥 GPX</button>
+<a href="{f.stem}.fit" download id="fitBtn" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem;text-decoration:none;display:none" title="Stáhnout FIT">📥 FIT</a>
+<button id="renameBtn" onclick="renameActivity()" style="background:#ff6b35;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:1rem;display:none" title="Přejmenovat">✏️</button>
 </div>
+<script>
+if(location.search.includes('token={admin_token}')){{document.getElementById('fitBtn').style.display='';document.getElementById('renameBtn').style.display='';}}
+function exportGpx(){{
+  var pts=typeof coords!=='undefined'?coords:[];
+  if(!pts.length)return;
+  var trkpts=pts.map(function(c){{return '<trkpt lat="'+c[0]+'" lon="'+c[1]+'"></trkpt>'}}).join('\\n');
+  var gpx='<?xml version="1.0" encoding="UTF-8"?>\\n<gpx version="1.1" creator="tommyq.cz">\\n<trk><name>'+document.title+'</name><trkseg>\\n'+trkpts+'\\n</trkseg></trk></gpx>';
+  var b=new Blob([gpx],{{type:'application/gpx+xml'}});
+  var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=document.title.replace(/[^a-zA-Z0-9_-]/g,'_')+'.gpx';a.click();
+}}
+function renameActivity(){{
+  var name=prompt('Nový název aktivity:',document.querySelector('h1').textContent);
+  if(!name)return;
+  var token=new URLSearchParams(location.search).get('token');
+  fetch('../cgi/rename.cgi?token='+token+'&id={f.stem}&name='+encodeURIComponent(name))
+    .then(function(r){{return r.json()}}).then(function(d){{
+      if(d.status==='renamed'){{document.querySelector('h1').textContent=name;document.title=name;}}
+    }});
+}}
+</script>
 <script>
 function copyOverview(btn) {{
   btn.disabled = true; btn.textContent = '⏳';
@@ -157,11 +181,12 @@ function exportPng(btn) {{
   }}, 300);
 }}
 </script>'''
-    # Remove old shareBar and exportPng if present, then inject new
+    # Remove old shareBar and functions if present, then inject new
     import re as _re
     content = _re.sub(r'<script src="https://cdn\.jsdelivr\.net/npm/html2canvas.*?</script>', '', content, flags=_re.DOTALL)
     content = _re.sub(r'<div id="shareBar".*?</div>', '', content, flags=_re.DOTALL)
     content = _re.sub(r'<script>\s*function (exportPng|copyOverview).*?</script>', '', content, flags=_re.DOTALL)
+    content = _re.sub(r'<script>\s*if\(location\.search.*?</script>', '', content, flags=_re.DOTALL)
     # Ensure preferCanvas is set on map
     content = content.replace("L.map('map')", "L.map('map', {preferCanvas: true})")
     content = content.replace("L.map('map', {preferCanvas: true}, {preferCanvas: true})", "L.map('map', {preferCanvas: true})")
