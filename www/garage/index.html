@@ -22,10 +22,15 @@ h1 span { color: var(--accent); }
 .gallery img:hover { transform: scale(1.03); }
 .gallery figure { margin: 0; }
 .gallery figcaption { text-align: center; font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
-.lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; gap: 1rem; cursor: pointer; }
+.lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; gap: 1rem; }
 .lightbox.active { display: flex; }
-.lightbox img { max-width: 90vw; max-height: 85vh; border-radius: 8px; }
+.lightbox img { max-width: 90vw; max-height: 85vh; border-radius: 8px; cursor: default; }
 .lightbox .caption { color: var(--muted); font-size: 0.95rem; }
+.lightbox .nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 2.5rem; padding: 0.5rem 1rem; cursor: pointer; border-radius: 8px; }
+.lightbox .nav:hover { background: rgba(255,255,255,0.3); }
+.lightbox .prev { left: 1rem; }
+.lightbox .next { right: 1rem; }
+.lightbox .close { position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer; }
 .accessories { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #333; }
 .accessories h3 { font-size: 1rem; color: var(--muted); margin-bottom: 0.5rem; }
 .accessories ul { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -156,24 +161,40 @@ h1 span { color: var(--accent); }
 </div>
 
 <div class="lightbox" id="lightbox">
+  <button class="close" onclick="lightbox.classList.remove('active')">✕</button>
+  <button class="nav prev" onclick="navigate(-1)">‹</button>
   <img src="" alt="Detail">
   <div class="caption"></div>
+  <button class="nav next" onclick="navigate(1)">›</button>
 </div>
 
 <script>
 const lightbox = document.getElementById('lightbox');
 const lbImg = lightbox.querySelector('img');
 const lbCaption = lightbox.querySelector('.caption');
-document.querySelectorAll('.gallery img').forEach(img => {
-  img.addEventListener('click', () => {
-    lbImg.src = img.src;
-    const fig = img.closest('figure');
-    lbCaption.textContent = fig ? fig.querySelector('figcaption')?.textContent || '' : '';
-    lightbox.classList.add('active');
-  });
+const allImgs = [...document.querySelectorAll('.gallery img')];
+let currentIdx = 0;
+
+function showImage(idx) {
+  currentIdx = (idx + allImgs.length) % allImgs.length;
+  const img = allImgs[currentIdx];
+  lbImg.src = img.src;
+  const fig = img.closest('figure');
+  lbCaption.textContent = fig ? fig.querySelector('figcaption')?.textContent || '' : '';
+}
+
+function navigate(dir) { showImage(currentIdx + dir); }
+
+allImgs.forEach((img, i) => {
+  img.addEventListener('click', () => { showImage(i); lightbox.classList.add('active'); });
 });
-lightbox.addEventListener('click', () => lightbox.classList.remove('active'));
-document.addEventListener('keydown', e => { if (e.key === 'Escape') lightbox.classList.remove('active'); });
+lightbox.addEventListener('click', e => { if (e.target === lightbox) lightbox.classList.remove('active'); });
+document.addEventListener('keydown', e => {
+  if (!lightbox.classList.contains('active')) return;
+  if (e.key === 'Escape') lightbox.classList.remove('active');
+  else if (e.key === 'ArrowLeft') navigate(-1);
+  else if (e.key === 'ArrowRight') navigate(1);
+});
 </script>
 </body>
 </html>
