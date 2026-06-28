@@ -44,7 +44,7 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
   document.title = d.name + ' - ' + d.date_str;
   document.getElementById('title').textContent = d.name;
   document.getElementById('subtitle').textContent = d.subtitle;
-  document.getElementById('fitBtn').href = 'activities/' + id + '.fit';
+  document.getElementById('fitBtn').href = 'activities/' + id + '.fit?token=' + token;
   document.getElementById('fitBtn').download = '';
   coords = d.coords;
 
