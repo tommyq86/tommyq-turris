@@ -122,7 +122,7 @@ function exportGpx() {
   var gpx = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="tommyq.cz">\n<trk><name>'+document.title+'</name><trkseg>\n'+trkpts+'\n</trkseg></trk></gpx>';
   var a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([gpx], {type:'application/gpx+xml'}));
-  a.download = document.title.replace(/[^a-zA-Z0-9_-]/g,'_') + '.gpx';
+  a.download = document.title.replace(/[\s/\\:*?"<>|]+/g,'_') + '.gpx';
   a.click();
 }
 function exportPng(btn) {
@@ -140,7 +140,7 @@ function exportPng(btn) {
     });
     html2canvas(document.body, {useCORS:true, allowTaint:false, scrollX:0, scrollY:0}).then(function(canvas) {
       var a = document.createElement('a');
-      a.download = document.title.replace(/[^a-zA-Z0-9_-]/g,'_') + '.png';
+      a.download = document.title.replace(/[\s/\\:*?"<>|]+/g,'_') + '.png';
       a.href = canvas.toDataURL('image/png');
       a.click();
       btn.textContent = '🖼️'; btn.disabled = false;
