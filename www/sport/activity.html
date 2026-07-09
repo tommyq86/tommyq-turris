@@ -53,10 +53,10 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
     var w = d.weather, parts = [];
     if (w.conditions) parts.push(w.conditions);
     if (w.temperature != null) parts.push(w.temperature + ' °C');
-    if (w.humidity != null) parts.push('💧 ' + w.humidity + ' %');
-    if (w.precipitation > 0) parts.push('🌧️ ' + w.precipitation + ' mm');
+    if (w.humidity != null) parts.push('Vlhkost ' + w.humidity + ' %');
+    if (w.precipitation > 0) parts.push('Srážky ' + w.precipitation + ' mm');
     if (w.wind_speed != null) {
-      var ws = '💨 ' + w.wind_speed + ' km/h';
+      var ws = 'Vítr ' + w.wind_speed + ' km/h';
       if (w.wind_gusts && w.wind_gusts > w.wind_speed) ws += ' (nárazy ' + w.wind_gusts + ' km/h)';
       parts.push(ws);
     }
