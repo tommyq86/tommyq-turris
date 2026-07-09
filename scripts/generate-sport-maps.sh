@@ -144,8 +144,8 @@ for f in activities_dir.glob("*.html"):
             existing_data = json.loads(json_path.read_text())
         except (json.JSONDecodeError, OSError):
             pass
-        # Skip if JSON is newer than HTML AND already has weather
-        if existing_data and json_path.stat().st_mtime >= f.stat().st_mtime and "weather" in existing_data:
+        # Skip if JSON is newer than HTML AND already has weather AND coords_sampled
+        if existing_data and json_path.stat().st_mtime >= f.stat().st_mtime and "weather" in existing_data and "coords_sampled" in existing_data:
             continue
 
     content = f.read_text()
@@ -156,11 +156,13 @@ for f in activities_dir.glob("*.html"):
             except: return []
         return []
 
-    # If JSON exists with correct data but just missing weather, only add weather
+    # If JSON exists with correct data but just missing weather/coords_sampled, patch it
     if existing_data and json_path.stat().st_mtime >= f.stat().st_mtime:
         data = existing_data
         coords = data.get("coords", [])
         date_str = data.get("date_str", "")
+        if "coords_sampled" not in data:
+            data["coords_sampled"] = extract("coordsSampled")
     else:
         title_m = re.search(r'<title>(.*?)</title>', content)
         h1_m = re.search(r'<h1>(.*?)</h1>', content)
@@ -174,11 +176,13 @@ for f in activities_dir.glob("*.html"):
         elif ' - ' in title:
             date_str = title.split(' - ', 1)[1]
         coords = extract("coords")
+        coords_sampled = extract("coordsSampled")
         data = {
             "name": name,
             "date_str": date_str,
             "subtitle": sub_m.group(1) if sub_m else '',
             "coords": coords,
+            "coords_sampled": coords_sampled,
             "dist": extract("dist"),
             "alt": extract("alt"),
             "spd": extract("spd"),

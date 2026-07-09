@@ -85,7 +85,7 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
 
   // Chart
   var posMarker = L.circleMarker([0,0], {radius: 8, color: '#fff', weight: 3, fillColor: '#ff6b35', fillOpacity: 1});
-  var step = Math.max(1, Math.floor((d.coords||[]).length / (d.dist||[]).length)) || 1;
+  var coordsChart = d.coords_sampled || d.coords;
   new Chart(document.getElementById('comboChart'), {
     type: 'line',
     data: {
@@ -111,9 +111,9 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
       },
       onHover: function(event, elements, chart) {
         var points = chart.getElementsAtEventForMode(event, 'index', { intersect: false }, true);
-        if (points.length && map && d.coords.length) {
-          var idx = Math.min(points[0].index * step, d.coords.length - 1);
-          posMarker.setLatLng(d.coords[idx]);
+        if (points.length && map && coordsChart.length) {
+          var idx = Math.min(points[0].index, coordsChart.length - 1);
+          posMarker.setLatLng(coordsChart[idx]);
           if (!map.hasLayer(posMarker)) posMarker.addTo(map);
         } else if (map) { map.removeLayer(posMarker); }
       }
