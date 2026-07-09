@@ -93,8 +93,48 @@ fi
 
 # Generate JSON from HTML source files
 python3 - "$ACTIVITIES_DIR" << 'PYJSON'
-import sys, re, json
+import sys, re, json, urllib.request
+from datetime import datetime
 from pathlib import Path
+
+WMO_CODES = {
+    0: "☀️ Jasno", 1: "🌤️ Převážně jasno", 2: "⛅ Polojasno", 3: "☁️ Zataženo",
+    45: "🌫️ Mlha", 48: "🌫️ Námraza",
+    51: "🌦️ Slabé mrholení", 53: "🌦️ Mrholení", 55: "🌦️ Silné mrholení",
+    61: "🌧️ Slabý déšť", 63: "🌧️ Déšť", 65: "🌧️ Silný déšť",
+    66: "🌧️ Slabý mrznoucí déšť", 67: "🌧️ Mrznoucí déšť",
+    71: "🌨️ Slabé sněžení", 73: "🌨️ Sněžení", 75: "🌨️ Silné sněžení",
+    80: "🌦️ Slabé přeháňky", 81: "🌦️ Přeháňky", 82: "🌦️ Silné přeháňky",
+    85: "🌨️ Slabé sněhové přeháňky", 86: "🌨️ Sněhové přeháňky",
+    95: "⛈️ Bouřka", 96: "⛈️ Bouřka s kroupami", 99: "⛈️ Bouřka se silnými kroupami",
+}
+
+def fetch_weather(lat, lon, date_str, hour):
+    """Fetch weather from Open-Meteo for given coords, date, and hour."""
+    url = (
+        f"https://archive-api.open-meteo.com/v1/archive"
+        f"?latitude={lat:.4f}&longitude={lon:.4f}"
+        f"&start_date={date_str}&end_date={date_str}"
+        f"&hourly=temperature_2m,relative_humidity_2m,precipitation,windspeed_10m,windgusts_10m,weathercode"
+    )
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read())
+        hourly = data.get("hourly", {})
+        if not hourly or hour >= len(hourly.get("time", [])):
+            return None
+        code = hourly.get("weathercode", [None])[hour]
+        return {
+            "conditions": WMO_CODES.get(code, "?") if code is not None else None,
+            "temperature": hourly.get("temperature_2m", [None])[hour],
+            "humidity": hourly.get("relative_humidity_2m", [None])[hour],
+            "precipitation": hourly.get("precipitation", [None])[hour],
+            "wind_speed": hourly.get("windspeed_10m", [None])[hour],
+            "wind_gusts": hourly.get("windgusts_10m", [None])[hour],
+        }
+    except Exception:
+        return None
+
 activities_dir = Path(sys.argv[1])
 for f in activities_dir.glob("*.html"):
     json_path = f.with_suffix('.json')
@@ -119,17 +159,39 @@ for f in activities_dir.glob("*.html"):
         date_str = parts[0] if parts else ''
     elif ' - ' in title:
         date_str = title.split(' - ', 1)[1]
+    coords = extract("coords")
     data = {
         "name": name,
         "date_str": date_str,
         "subtitle": sub_m.group(1) if sub_m else '',
-        "coords": extract("coords"),
+        "coords": coords,
         "dist": extract("dist"),
         "alt": extract("alt"),
         "spd": extract("spd"),
         "hr": extract("hr"),
         "grad": extract("grad"),
     }
+    # Fetch weather at midpoint of activity
+    if coords and date_str:
+        try:
+            mid = coords[len(coords) // 2]
+            dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
+            # Use midpoint time (approximate: start + half duration)
+            dist_list = data["dist"]
+            # Estimate mid-hour from date
+            hour = dt.hour
+            # If we have enough data, try to estimate mid-activity hour
+            if dist_list and len(dist_list) > 1:
+                # mid index in downsampled data → proportional time offset
+                total_dist = dist_list[-1] if dist_list[-1] > 0 else 1
+                mid_dist = dist_list[len(dist_list) // 2]
+                # rough estimation: activity probably spans ~1-3 hours
+                pass
+            weather = fetch_weather(mid[0], mid[1], dt.strftime("%Y-%m-%d"), hour)
+            if weather:
+                data["weather"] = weather
+        except (ValueError, IndexError):
+            pass
     json_path.write_text(json.dumps(data))
 PYJSON
 

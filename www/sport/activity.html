@@ -9,6 +9,9 @@
 body { font-family: system-ui, sans-serif; margin: 0; padding: 8px; background: #1a1a2e; color: #eee; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 h1 { margin: 0 0 2px; font-size: 1.2em; }
 .subtitle { color: #aaa; margin-bottom: 6px; font-size: 0.9em; }
+.weather { color: #ccc; margin-bottom: 6px; font-size: 0.85em; display: flex; gap: 12px; flex-wrap: wrap; }
+.weather span { background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 4px; }
+.leaflet-attribution-flag { display: none !important; }
 #map { flex: 5; border-radius: 8px; min-height: 0; touch-action: none; }
 .chart-box { flex: 1; background: #16213e; border-radius: 8px; padding: 8px; margin-top: 8px; min-height: 100px; display: flex; }
 #comboChart { width: 100% !important; height: 100% !important; }
@@ -22,6 +25,7 @@ h1 { margin: 0 0 2px; font-size: 1.2em; }
 </style></head><body>
 <h1 id="title">Načítám...</h1>
 <div class="subtitle" id="subtitle"></div>
+<div class="weather" id="weather"></div>
 <div id="shareBar">
 <button onclick="navigator.clipboard.writeText(location.href).then(()=>this.textContent='✓')" title="Kopírovat odkaz">🔗</button>
 <button onclick="copyOverview()" title="Kopírovat přehled">📊</button>
@@ -44,6 +48,20 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
   document.title = d.name + ' - ' + d.date_str;
   document.getElementById('title').textContent = d.name;
   document.getElementById('subtitle').textContent = d.subtitle;
+  // Weather
+  if (d.weather) {
+    var w = d.weather, parts = [];
+    if (w.conditions) parts.push(w.conditions);
+    if (w.temperature != null) parts.push(w.temperature + ' °C');
+    if (w.humidity != null) parts.push('💧 ' + w.humidity + ' %');
+    if (w.precipitation > 0) parts.push('🌧️ ' + w.precipitation + ' mm');
+    if (w.wind_speed != null) {
+      var ws = '💨 ' + w.wind_speed + ' km/h';
+      if (w.wind_gusts && w.wind_gusts > w.wind_speed) ws += ' (nárazy ' + w.wind_gusts + ')';
+      parts.push(ws);
+    }
+    document.getElementById('weather').innerHTML = parts.map(function(p) { return '<span>' + p + '</span>'; }).join('');
+  }
   document.getElementById('fitBtn').href = 'activities/' + id + '.fit?token=' + token;
   document.getElementById('fitBtn').download = '';
   coords = d.coords;
@@ -130,13 +148,28 @@ function exportPng(btn) {
   document.getElementById('shareBar').style.display = 'none';
   if (map) map.invalidateSize();
   setTimeout(function() {
+    // Store original transforms to restore later
+    var originals = [];
+    // Reset map-pane transform (parent of all layers)
+    var mapPane = document.querySelector('.leaflet-map-pane');
+    if (mapPane) {
+      var t = mapPane.style.transform, m = t && t.match(/translate3d\((.+?)px,\s*(.+?)px/);
+      if (m) {
+        originals.push({el: mapPane, transform: t});
+        mapPane.style.transform = 'translate('+m[1]+'px,'+m[2]+'px)';
+      }
+    }
     document.querySelectorAll('.leaflet-tile-container').forEach(function(c) {
       var t = c.style.transform, m = t.match(/translate3d\((.+?)px,\s*(.+?)px/);
-      if (m) { c.style.transform = 'none'; c.style.left = m[1]+'px'; c.style.top = m[2]+'px'; }
+      if (m) { originals.push({el: c, transform: t}); c.style.transform = 'translate('+m[1]+'px,'+m[2]+'px)'; }
     });
     document.querySelectorAll('.leaflet-overlay-pane canvas, .leaflet-overlay-pane svg').forEach(function(el) {
       var t = el.style.transform, m = t && t.match(/translate3d\((.+?)px,\s*(.+?)px/);
-      if (m) { el.style.transform = 'none'; el.style.left = m[1]+'px'; el.style.top = m[2]+'px'; }
+      if (m) { originals.push({el: el, transform: t}); el.style.transform = 'translate('+m[1]+'px,'+m[2]+'px)'; }
+    });
+    document.querySelectorAll('.leaflet-marker-pane, .leaflet-shadow-pane, .leaflet-tooltip-pane, .leaflet-popup-pane').forEach(function(el) {
+      var t = el.style.transform, m = t && t.match(/translate3d\((.+?)px,\s*(.+?)px/);
+      if (m) { originals.push({el: el, transform: t}); el.style.transform = 'translate('+m[1]+'px,'+m[2]+'px)'; }
     });
     html2canvas(document.body, {useCORS:true, allowTaint:false, scrollX:0, scrollY:0}).then(function(canvas) {
       var a = document.createElement('a');
@@ -145,7 +178,12 @@ function exportPng(btn) {
       a.click();
       btn.textContent = '🖼️'; btn.disabled = false;
     }).catch(function() { btn.textContent = '✗'; btn.disabled = false; })
-    .finally(function() { document.getElementById('shareBar').style.display = ''; if (map) map.invalidateSize(); });
+    .finally(function() {
+      // Restore original transforms
+      originals.forEach(function(o) { o.el.style.transform = o.transform; });
+      document.getElementById('shareBar').style.display = '';
+      if (map) map.invalidateSize();
+    });
   }, 300);
 }
 function renameActivity() {
