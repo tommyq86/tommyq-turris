@@ -7,9 +7,10 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 body { font-family: system-ui, sans-serif; margin: 0; padding: 8px; background: #1a1a2e; color: #eee; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
-h1 { margin: 0 0 2px; font-size: 1.2em; }
+h1 { margin: 0 0 2px; font-size: 1.2em; display: inline; }
 .subtitle { color: #aaa; margin-bottom: 6px; font-size: 0.9em; }
-.weather { color: #ccc; margin-bottom: 6px; font-size: 0.85em; display: flex; gap: 12px; flex-wrap: wrap; }
+.header-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 2px; flex-wrap: wrap; }
+.weather { color: #ccc; font-size: 0.85em; display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto; }
 .weather span { background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 4px; }
 .leaflet-attribution-flag { display: none !important; }
 #map { flex: 5; border-radius: 8px; min-height: 0; touch-action: none; }
@@ -23,9 +24,8 @@ h1 { margin: 0 0 2px; font-size: 1.2em; }
   .chart-box { min-height: 140px; flex: 2; padding: 4px; }
 }
 </style></head><body>
-<h1 id="title">Načítám...</h1>
+<div class="header-row"><h1 id="title">Načítám...</h1><div class="weather" id="weather"></div></div>
 <div class="subtitle" id="subtitle"></div>
-<div class="weather" id="weather"></div>
 <div id="shareBar">
 <button onclick="navigator.clipboard.writeText(location.href).then(()=>this.textContent='✓')" title="Kopírovat odkaz">🔗</button>
 <button onclick="copyOverview()" title="Kopírovat přehled">📊</button>
