@@ -138,8 +138,16 @@ def fetch_weather(lat, lon, date_str, hour):
 activities_dir = Path(sys.argv[1])
 for f in activities_dir.glob("*.html"):
     json_path = f.with_suffix('.json')
-    if json_path.exists() and json_path.stat().st_mtime >= f.stat().st_mtime:
-        continue
+    existing_data = None
+    if json_path.exists():
+        try:
+            existing_data = json.loads(json_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+        # Skip if JSON is newer than HTML AND already has weather
+        if existing_data and json_path.stat().st_mtime >= f.stat().st_mtime and "weather" in existing_data:
+            continue
+
     content = f.read_text()
     def extract(name):
         m = re.search(rf'const {name} = (\[.*?\]);', content, re.DOTALL)
@@ -147,47 +155,43 @@ for f in activities_dir.glob("*.html"):
             try: return json.loads(m.group(1))
             except: return []
         return []
-    title_m = re.search(r'<title>(.*?)</title>', content)
-    h1_m = re.search(r'<h1>(.*?)</h1>', content)
-    sub_m = re.search(r'class="subtitle">(.*?)</div>', content)
-    title = title_m.group(1) if title_m else f.stem
-    name = h1_m.group(1) if h1_m else title.split(' - ')[0] if ' - ' in title else title
-    # Extract date from subtitle or title
-    date_str = ''
-    if sub_m:
-        parts = sub_m.group(1).split(' · ')
-        date_str = parts[0] if parts else ''
-    elif ' - ' in title:
-        date_str = title.split(' - ', 1)[1]
-    coords = extract("coords")
-    data = {
-        "name": name,
-        "date_str": date_str,
-        "subtitle": sub_m.group(1) if sub_m else '',
-        "coords": coords,
-        "dist": extract("dist"),
-        "alt": extract("alt"),
-        "spd": extract("spd"),
-        "hr": extract("hr"),
-        "grad": extract("grad"),
-    }
-    # Fetch weather at midpoint of activity
-    if coords and date_str:
+
+    # If JSON exists with correct data but just missing weather, only add weather
+    if existing_data and json_path.stat().st_mtime >= f.stat().st_mtime:
+        data = existing_data
+        coords = data.get("coords", [])
+        date_str = data.get("date_str", "")
+    else:
+        title_m = re.search(r'<title>(.*?)</title>', content)
+        h1_m = re.search(r'<h1>(.*?)</h1>', content)
+        sub_m = re.search(r'class="subtitle">(.*?)</div>', content)
+        title = title_m.group(1) if title_m else f.stem
+        name = h1_m.group(1) if h1_m else title.split(' - ')[0] if ' - ' in title else title
+        date_str = ''
+        if sub_m:
+            parts = sub_m.group(1).split(' · ')
+            date_str = parts[0] if parts else ''
+        elif ' - ' in title:
+            date_str = title.split(' - ', 1)[1]
+        coords = extract("coords")
+        data = {
+            "name": name,
+            "date_str": date_str,
+            "subtitle": sub_m.group(1) if sub_m else '',
+            "coords": coords,
+            "dist": extract("dist"),
+            "alt": extract("alt"),
+            "spd": extract("spd"),
+            "hr": extract("hr"),
+            "grad": extract("grad"),
+        }
+
+    # Fetch weather at midpoint of activity (if not already present)
+    if coords and date_str and "weather" not in data:
         try:
             mid = coords[len(coords) // 2]
             dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
-            # Use midpoint time (approximate: start + half duration)
-            dist_list = data["dist"]
-            # Estimate mid-hour from date
-            hour = dt.hour
-            # If we have enough data, try to estimate mid-activity hour
-            if dist_list and len(dist_list) > 1:
-                # mid index in downsampled data → proportional time offset
-                total_dist = dist_list[-1] if dist_list[-1] > 0 else 1
-                mid_dist = dist_list[len(dist_list) // 2]
-                # rough estimation: activity probably spans ~1-3 hours
-                pass
-            weather = fetch_weather(mid[0], mid[1], dt.strftime("%Y-%m-%d"), hour)
+            weather = fetch_weather(mid[0], mid[1], dt.strftime("%Y-%m-%d"), dt.hour)
             if weather:
                 data["weather"] = weather
         except (ValueError, IndexError):
