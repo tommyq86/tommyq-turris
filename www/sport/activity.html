@@ -57,7 +57,7 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
     if (w.precipitation > 0) parts.push('🌧️ ' + w.precipitation + ' mm');
     if (w.wind_speed != null) {
       var ws = '💨 ' + w.wind_speed + ' km/h';
-      if (w.wind_gusts && w.wind_gusts > w.wind_speed) ws += ' (nárazy ' + w.wind_gusts + ')';
+      if (w.wind_gusts && w.wind_gusts > w.wind_speed) ws += ' (nárazy ' + w.wind_gusts + ' km/h)';
       parts.push(ws);
     }
     document.getElementById('weather').innerHTML = parts.map(function(p) { return '<span>' + p + '</span>'; }).join('');
