@@ -85,7 +85,7 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
 
   // Chart
   var posMarker = L.circleMarker([0,0], {radius: 8, color: '#fff', weight: 3, fillColor: '#ff6b35', fillOpacity: 1});
-  var coordsChart = d.coords_sampled || d.coords;
+  var coordsChart = (d.coords_sampled && d.coords_sampled.length) ? d.coords_sampled : d.coords;
   new Chart(document.getElementById('comboChart'), {
     type: 'line',
     data: {
