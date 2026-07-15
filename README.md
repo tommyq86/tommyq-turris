@@ -96,6 +96,35 @@ ssh turris '/root/scripts/generate-sport-maps.sh'       # full (fetch + generate
 ssh turris '/root/scripts/generate-sport-maps.sh list-only'  # regenerate index only
 ```
 
+### Merged activities
+
+When a ride is split into multiple Bryton activities (e.g. device restart), merge and upload automatically:
+
+```bash
+# One command: downloads last 2 activities, merges, uploads to turris, excludes originals, regenerates
+bryton merge-upload
+```
+
+Manual workflow:
+```bash
+# 1. Download + merge locally
+bryton download <id1>
+bryton download <id2>
+bryton merge part1.fit part2.fit
+
+# 2. Upload merged FIT to turris
+cat merged_*.fit | ssh turris "cat > /srv/tommyq/sport/activities/merged_file.fit"
+
+# 3. Exclude original activities from auto-download
+ssh turris "echo '<id1>' >> /srv/tommyq/sport/.exclude"
+ssh turris "echo '<id2>' >> /srv/tommyq/sport/.exclude"
+
+# 4. Regenerate
+ssh turris '/root/scripts/generate-sport-maps.sh'
+```
+
+The `.exclude` file contains Bryton activity IDs (one per line) skipped during generation. Imported FIT files (names not starting with 5+ digits) are processed via `import_activity.py`.
+
 ## Related Repositories
 
 - [tommyq-assistant](https://github.com/tommyq86/tommyq-assistant) - SmartHome assistant service
