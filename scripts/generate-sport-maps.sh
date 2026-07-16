@@ -218,19 +218,39 @@ for f in activities_dir.glob("*.html"):
                     m, sec = divmod(rem, 60)
                     return f"{h}:{m:02d}:{sec:02d}"
                 fields = []
-                dist = session.get('total_distance', 0)
-                if dist: fields.append({"label": "Vzdálenost", "value": f"{dist/1000:.2f} km"})
-                elapsed = session.get('total_elapsed_time', 0)
-                if elapsed: fields.append({"label": "Doba trvání", "value": fmt_time(elapsed)})
+                # Speed
                 avg_spd = session.get('enhanced_avg_speed') or session.get('avg_speed', 0)
                 if avg_spd: fields.append({"label": "Prům. rychlost", "value": f"{avg_spd*3.6:.1f} km/h"})
                 max_spd = session.get('enhanced_max_speed') or session.get('max_speed', 0)
                 if max_spd: fields.append({"label": "Max. rychlost", "value": f"{max_spd*3.6:.1f} km/h"})
-                if session.get('avg_heart_rate'): fields.append({"label": "Prům. TF", "value": f"{session['avg_heart_rate']} bpm"})
-                if session.get('max_heart_rate'): fields.append({"label": "Max. TF", "value": f"{session['max_heart_rate']} bpm"})
+                # Cadence
                 if session.get('avg_cadence'): fields.append({"label": "Prům. kadence", "value": f"{session['avg_cadence']} rpm"})
+                # Elevation
                 if session.get('total_ascent'): fields.append({"label": "Převýšení +", "value": f"{session['total_ascent']} m"})
                 if session.get('total_descent'): fields.append({"label": "Převýšení −", "value": f"{session['total_descent']} m"})
+                # Heart rate
+                if session.get('avg_heart_rate'): fields.append({"label": "Prům. TF", "value": f"{session['avg_heart_rate']} bpm"})
+                if session.get('max_heart_rate'): fields.append({"label": "Max. TF", "value": f"{session['max_heart_rate']} bpm"})
+                # HR zones (calculated from JSON hr data)
+                max_hr = session.get('max_heart_rate', 0)
+                hr_data = data.get("hr", [])
+                elapsed = session.get('total_elapsed_time', 0)
+                if max_hr and hr_data and elapsed:
+                    interval = elapsed / len(hr_data)
+                    zone_secs = [0]*5
+                    for hr in hr_data:
+                        if hr and hr > 0:
+                            pct = hr / max_hr
+                            if pct >= 0.9: zone_secs[4] += interval
+                            elif pct >= 0.8: zone_secs[3] += interval
+                            elif pct >= 0.7: zone_secs[2] += interval
+                            elif pct >= 0.6: zone_secs[1] += interval
+                            elif pct >= 0.5: zone_secs[0] += interval
+                    total_z = sum(zone_secs)
+                    if total_z > 0:
+                        for i, s in enumerate(zone_secs):
+                            if s > 0:
+                                fields.append({"label": f"Zóna {i+1}", "value": f"{fmt_time(s)}  ({s*100/total_z:.0f}%)"})
                 if fields:
                     data["overview"] = fields
             except Exception:
