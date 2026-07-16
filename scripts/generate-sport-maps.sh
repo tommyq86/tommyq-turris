@@ -1,5 +1,9 @@
 #!/bin/bash
 # Generate sport activity JSON data files and index page
+# Usage:
+#   generate-sport-maps.sh              # full (fetch from Bryton + generate all)
+#   generate-sport-maps.sh list-only    # regenerate index page only
+#   generate-sport-maps.sh <ID>         # regenerate specific activity JSON + index
 set -e
 
 BRYTON="/root/sport/bryton.py"
@@ -10,8 +14,26 @@ TOKEN_FILE="/root/.tommyq/sport-token.conf"
 source "$TOKEN_FILE"
 mkdir -p "$ACTIVITIES_DIR"
 
+# Single activity regeneration mode
+if [ -n "$1" ] && [ "$1" != "list-only" ] && [ -f "$ACTIVITIES_DIR/$1.html" ]; then
+    # Clear cached data for this activity to force regeneration
+    if [ -f "$ACTIVITIES_DIR/$1.json" ]; then
+        python3 -c "
+import json, sys
+f = sys.argv[1]
+data = json.loads(open(f).read())
+for key in ('weather', 'overview', 'hr_zones'):
+    data.pop(key, None)
+open(f, 'w').write(json.dumps(data))
+" "$ACTIVITIES_DIR/$1.json"
+    fi
+    REGEN_ID="$1"
+else
+    REGEN_ID=""
+fi
+
 # Fetch activities from Bryton
-if [ "$1" != "list-only" ]; then
+if [ -z "$REGEN_ID" ] && [ "$1" != "list-only" ]; then
     LIST_OUTPUT=$(python3 "$BRYTON" list 2>/dev/null)
     ACTIVITIES=$(echo "$LIST_OUTPUT" | tail -n +3 | awk '{print $1}')
 
