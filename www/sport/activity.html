@@ -30,7 +30,7 @@ h1 { margin: 0 0 2px; font-size: 1.2em; }
 <h1 id="title">Načítám...</h1>
 <div class="subtitle-row"><div class="subtitle" id="subtitle"></div><div class="weather" id="weather"></div></div>
 <div id="shareBar">
-<button onclick="navigator.clipboard.writeText(location.href).then(()=>this.textContent='✓')" title="Kopírovat odkaz">🔗</button>
+<button id="shareBtn" onclick="copyShareLink(this)" title="Kopírovat odkaz">🔗</button>
 <button onclick="copyOverview()" onmouseenter="showOverview(this)" onmouseleave="hideOverview()" title="Kopírovat přehled">📊</button>
 <button onclick="exportPng(this)" title="Stáhnout PNG">🖼️</button>
 <button onclick="exportGpx()" title="Stáhnout GPX trasu">📥 GPX</button>
@@ -44,7 +44,7 @@ h1 { margin: 0 0 2px; font-size: 1.2em; }
 var params = new URLSearchParams(location.search);
 var id = params.get('id');
 var token = params.get('token');
-var map, coords;
+var map, coords, publicToken = token;
 
 fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
 .then(r => r.json())
@@ -73,6 +73,7 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
   // Admin features
   fetch('cgi/api.cgi?token=' + token + '&id=check-admin')
   .then(r => r.json()).then(function(r) {
+    if (r.public_token) publicToken = r.public_token;
     if (r.admin) document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('admin-only'));
   }).catch(function(){});
 
@@ -127,6 +128,13 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
 }).catch(function() {
   document.getElementById('title').textContent = 'Aktivita nenalezena';
 });
+
+function copyShareLink(btn) {
+  var url = location.origin + location.pathname + '?id=' + id + '&token=' + publicToken;
+  navigator.clipboard.writeText(url).then(function() {
+    btn.textContent = '✓'; setTimeout(function(){ btn.textContent = '🔗'; }, 1500);
+  });
+}
 
 function copyOverview() {
   var btn = document.querySelector('[title="Kopírovat přehled"]');
