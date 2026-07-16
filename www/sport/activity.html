@@ -44,7 +44,7 @@ h1 { margin: 0 0 2px; font-size: 1.2em; }
 var params = new URLSearchParams(location.search);
 var id = params.get('id');
 var token = params.get('token');
-var map, coords, publicToken = token, overviewData = null;
+var map, coords, publicToken = token, overviewData = null, activityInfo = null;
 
 fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
 .then(r => r.json())
@@ -70,6 +70,15 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
   document.getElementById('fitBtn').download = '';
   coords = d.coords;
   if (d.overview) overviewData = d.overview;
+  activityInfo = { name: d.name, subtitle: d.subtitle, weather: null };
+  if (d.weather) {
+    var wp = [];
+    if (d.weather.conditions) wp.push(d.weather.conditions);
+    if (d.weather.temperature != null) wp.push(d.weather.temperature + ' °C');
+    if (d.weather.humidity != null) wp.push('Vlhkost ' + d.weather.humidity + ' %');
+    if (d.weather.wind_speed != null) wp.push('Vítr ' + d.weather.wind_speed + ' km/h');
+    activityInfo.weather = wp.join(', ');
+  }
 
   // Admin features
   fetch('cgi/api.cgi?token=' + token + '&id=check-admin')
@@ -140,8 +149,15 @@ function copyShareLink(btn) {
 function copyOverview() {
   var btn = document.querySelector('[title="Kopírovat přehled"]');
   if (overviewData) {
-    var text = overviewData.map(f => f.label + ': ' + f.value).join('\n');
-    navigator.clipboard.writeText(text).then(function() {
+    var lines = [];
+    if (activityInfo) {
+      lines.push(activityInfo.name);
+      lines.push(activityInfo.subtitle);
+      if (activityInfo.weather) lines.push(activityInfo.weather);
+      lines.push('');
+    }
+    lines = lines.concat(overviewData.map(f => f.label + ': ' + f.value));
+    navigator.clipboard.writeText(lines.join('\n')).then(function() {
       btn.textContent = '✓'; setTimeout(()=>btn.textContent='📊', 1500);
     });
   } else {
