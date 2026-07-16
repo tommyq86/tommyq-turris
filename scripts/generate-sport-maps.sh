@@ -287,7 +287,7 @@ for f in activities_dir.glob("*.html"):
                 # HR zones from Bryton API data
                 hr_zones = data.get("hr_zones")
                 if hr_zones and any(z > 0 for z in hr_zones):
-                    zone_names = ["Zotavení", "Nízká intenzita", "Aerobní", "Prahová", "Maximální", "Nadmaximální", "Zóna 7", "Zóna 8"]
+                    zone_names = ["Zotavení", "Nízká intenzita", "Aerobní", "Anaerobní", "Maximální", "Nadmaximální", "Zóna 7", "Zóna 8"]
                     total_z = sum(hr_zones)
                     for i, ms in enumerate(hr_zones):
                         if ms > 0:
