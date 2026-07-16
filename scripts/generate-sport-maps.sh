@@ -92,24 +92,46 @@ PYFIT
 fi
 
 # Fetch HR zones from Bryton API for activities missing them
-python3 - "$ACTIVITIES_DIR" << 'PYZONES'
-import sys, json
+python3 - "$ACTIVITIES_DIR" "$SPORT_DIR/.exclude" << 'PYZONES'
+import sys, json, re
 from pathlib import Path
 
 activities_dir = Path(sys.argv[1])
+exclude_file = Path(sys.argv[2])
 
-# Find Bryton activities missing hr_zones
-needs_zones = []
+# Find activities missing hr_zones
+needs_zones = []  # (json_path, [source_bryton_ids])
 for f in activities_dir.glob("*.json"):
-    # Only Bryton activities (IDs starting with letters/digits, length > 10)
-    if len(f.stem) < 10:
-        continue
     data = json.loads(f.read_text())
-    if "hr_zones" not in data:
-        needs_zones.append(f.stem)
+    if "hr_zones" in data:
+        continue
+    stem = f.stem
+    if stem.startswith("merged_"):
+        # Try to extract Bryton IDs from filename (merged_ID1_ID2 format)
+        parts = stem.replace("merged_", "").split("_")
+        bryton_ids = [p for p in parts if len(p) > 10 and p.isalnum()]
+        if not bryton_ids:
+            # Date-based name — find source IDs from exclude file
+            # These are excluded IDs not used by other merged files
+            pass
+        if bryton_ids:
+            needs_zones.append((f, bryton_ids))
+    elif len(stem) > 10:
+        # Regular Bryton activity
+        needs_zones.append((f, [stem]))
 
 if not needs_zones:
-    sys.exit(0)
+    # Check for date-based merged files that need exclude-file lookup
+    has_unresolved = False
+    for f in activities_dir.glob("merged_*.json"):
+        data = json.loads(f.read_text())
+        if "hr_zones" not in data:
+            parts = f.stem.replace("merged_", "").split("_")
+            bryton_ids = [p for p in parts if len(p) > 10 and p.isalnum()]
+            if not bryton_ids:
+                has_unresolved = True
+    if not has_unresolved:
+        sys.exit(0)
 
 # Connect to Bryton API and fetch zones
 try:
@@ -117,24 +139,74 @@ try:
     sys.path.insert(0, "/root")
     from bryton import connect_and_login, load_config
     import time
+    from datetime import datetime, timezone
 
     cfg = load_config()
     client = connect_and_login(cfg)
     client.subscribe("activityList")
     time.sleep(1)
+    activities = client.collections.get("userActivities", {})
 
-    for aid in needs_zones:
+    # Resolve date-based merged files using exclude list + activity timestamps
+    exclude_ids = []
+    if exclude_file.exists():
+        exclude_ids = [l.strip() for l in exclude_file.read_text().strip().split("\n") if l.strip()]
+
+    # Find which exclude IDs are already claimed by ID-based merged files
+    claimed_ids = set()
+    for f in activities_dir.glob("merged_*.json"):
+        parts = f.stem.replace("merged_", "").split("_")
+        for p in parts:
+            if len(p) > 10 and p.isalnum():
+                claimed_ids.add(p)
+
+    unclaimed_ids = [eid for eid in exclude_ids if eid not in claimed_ids]
+
+    for f in activities_dir.glob("merged_*.json"):
+        data = json.loads(f.read_text())
+        if "hr_zones" in data:
+            continue
+        parts = f.stem.replace("merged_", "").split("_")
+        bryton_ids = [p for p in parts if len(p) > 10 and p.isalnum()]
+        if not bryton_ids and unclaimed_ids:
+            # Match by date from filename
+            date_match = re.findall(r"(\d{4}-\d{2}-\d{2})_(\d{4})", f.stem)
+            if date_match:
+                matched = []
+                for eid in unclaimed_ids:
+                    meta = activities.get(eid, {})
+                    ts = meta.get("start_time", 0)
+                    if ts:
+                        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+                        local_str = f"{dt.strftime('%Y-%m-%d')}_{(dt.hour+2):02d}{dt.minute:02d}"
+                        for d, t in date_match:
+                            if local_str == f"{d}_{t}":
+                                matched.append(eid)
+                if matched:
+                    bryton_ids = matched
+        if bryton_ids:
+            needs_zones.append((f, bryton_ids))
+
+    # Fetch zones for all needed activities
+    for json_path, source_ids in needs_zones:
         try:
-            result = client.call("activity.detail.2", [aid])
-            if not result:
-                continue
-            vendor = result.get("vendor", {})
-            summary = vendor.get("summary", {})
-            zones = summary.get("time_in_hr_zone")
-            if zones and any(z > 0 for z in zones):
-                json_path = activities_dir / f"{aid}.json"
+            combined_zones = None
+            for aid in source_ids:
+                result = client.call("activity.detail.2", [aid])
+                if not result:
+                    continue
+                vendor = result.get("vendor", {})
+                summary = vendor.get("summary", {})
+                zones = summary.get("time_in_hr_zone")
+                if zones and any(z > 0 for z in zones):
+                    if combined_zones is None:
+                        combined_zones = list(zones)
+                    else:
+                        for i in range(min(len(combined_zones), len(zones))):
+                            combined_zones[i] += zones[i]
+            if combined_zones and any(z > 0 for z in combined_zones):
                 data = json.loads(json_path.read_text())
-                data["hr_zones"] = zones
+                data["hr_zones"] = combined_zones
                 json_path.write_text(json.dumps(data))
         except Exception:
             continue
