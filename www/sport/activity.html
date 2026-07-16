@@ -44,7 +44,7 @@ h1 { margin: 0 0 2px; font-size: 1.2em; }
 var params = new URLSearchParams(location.search);
 var id = params.get('id');
 var token = params.get('token');
-var map, coords, publicToken = token;
+var map, coords, publicToken = token, overviewData = null;
 
 fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
 .then(r => r.json())
@@ -69,6 +69,7 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
   document.getElementById('fitBtn').href = 'activities/' + id + '.fit?token=' + token;
   document.getElementById('fitBtn').download = '';
   coords = d.coords;
+  if (d.overview) overviewData = d.overview;
 
   // Admin features
   fetch('cgi/api.cgi?token=' + token + '&id=check-admin')
@@ -138,13 +139,20 @@ function copyShareLink(btn) {
 
 function copyOverview() {
   var btn = document.querySelector('[title="Kopírovat přehled"]');
-  btn.textContent = '⏳';
-  fetch('cgi/overview.cgi?token=' + token + '&id=' + id)
-    .then(r => r.json()).then(function(d) {
-      var text = d.title + '\n' + d.date + '\n\n' + d.fields.map(f => f.label + ': ' + f.value).join('\n');
-      return navigator.clipboard.writeText(text);
-    }).then(function() { btn.textContent = '✓'; setTimeout(()=>btn.textContent='📊', 1500); })
-    .catch(function() { btn.textContent = '✗'; setTimeout(()=>btn.textContent='📊', 1500); });
+  if (overviewData) {
+    var text = overviewData.map(f => f.label + ': ' + f.value).join('\n');
+    navigator.clipboard.writeText(text).then(function() {
+      btn.textContent = '✓'; setTimeout(()=>btn.textContent='📊', 1500);
+    });
+  } else {
+    btn.textContent = '⏳';
+    fetch('cgi/overview.cgi?token=' + token + '&id=' + id)
+      .then(r => r.json()).then(function(d) {
+        var text = d.fields.map(f => f.label + ': ' + f.value).join('\n');
+        return navigator.clipboard.writeText(text);
+      }).then(function() { btn.textContent = '✓'; setTimeout(()=>btn.textContent='📊', 1500); })
+      .catch(function() { btn.textContent = '✗'; setTimeout(()=>btn.textContent='📊', 1500); });
+  }
 }
 var overviewCache = null;
 function showOverview(btn) {
@@ -154,15 +162,18 @@ function showOverview(btn) {
   tip.style.right = (window.innerWidth - rect.right) + 'px';
   tip.style.left = '';
   if (overviewCache) { tip.innerHTML = overviewCache; tip.style.display = 'block'; return; }
-  tip.textContent = '...'; tip.style.display = 'block';
-  fetch('cgi/overview.cgi?token=' + token + '&id=' + id)
-    .then(r => r.json()).then(function(d) {
-      if (d.error) { tip.style.display = 'none'; return; }
-      var html = '<div class="ov-title">' + d.title + '</div><div class="ov-date">' + d.date + '</div>';
-      html += d.fields.map(f => f.label + ': <b>' + f.value + '</b>').join('<br>');
-      overviewCache = html;
-      tip.innerHTML = html;
-    }).catch(function() { tip.style.display = 'none'; });
+  if (overviewData) {
+    overviewCache = overviewData.map(f => f.label + ': <b>' + f.value + '</b>').join('<br>');
+    tip.innerHTML = overviewCache; tip.style.display = 'block';
+  } else {
+    tip.textContent = '...'; tip.style.display = 'block';
+    fetch('cgi/overview.cgi?token=' + token + '&id=' + id)
+      .then(r => r.json()).then(function(d) {
+        if (d.error) { tip.style.display = 'none'; return; }
+        overviewCache = d.fields.map(f => f.label + ': <b>' + f.value + '</b>').join('<br>');
+        tip.innerHTML = overviewCache;
+      }).catch(function() { tip.style.display = 'none'; });
+  }
 }
 function hideOverview() { document.getElementById('overviewTooltip').style.display = 'none'; }
 function exportGpx() {

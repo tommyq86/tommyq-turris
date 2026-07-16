@@ -144,8 +144,8 @@ for f in activities_dir.glob("*.html"):
             existing_data = json.loads(json_path.read_text())
         except (json.JSONDecodeError, OSError):
             pass
-        # Skip if JSON is newer than HTML AND already has weather AND coords_sampled
-        if existing_data and json_path.stat().st_mtime >= f.stat().st_mtime and "weather" in existing_data and "coords_sampled" in existing_data:
+        # Skip if JSON is newer than HTML AND already has weather AND coords_sampled AND overview
+        if existing_data and json_path.stat().st_mtime >= f.stat().st_mtime and "weather" in existing_data and "coords_sampled" in existing_data and "overview" in existing_data:
             continue
 
     content = f.read_text()
@@ -200,6 +200,42 @@ for f in activities_dir.glob("*.html"):
                 data["weather"] = weather
         except (ValueError, IndexError):
             pass
+
+    # Generate overview from FIT file (if not already present)
+    if "overview" not in data:
+        fit_path = f.with_suffix('.fit')
+        if fit_path.exists():
+            try:
+                import fitparse
+                fit = fitparse.FitFile(str(fit_path))
+                session = {}
+                for msg in fit.get_messages():
+                    if msg.name == 'session':
+                        session = {field.name: field.value for field in msg.fields}
+                        break
+                def fmt_time(s):
+                    h, rem = divmod(int(s), 3600)
+                    m, sec = divmod(rem, 60)
+                    return f"{h}:{m:02d}:{sec:02d}"
+                fields = []
+                dist = session.get('total_distance', 0)
+                if dist: fields.append({"label": "Vzdálenost", "value": f"{dist/1000:.2f} km"})
+                elapsed = session.get('total_elapsed_time', 0)
+                if elapsed: fields.append({"label": "Doba trvání", "value": fmt_time(elapsed)})
+                avg_spd = session.get('enhanced_avg_speed') or session.get('avg_speed', 0)
+                if avg_spd: fields.append({"label": "Prům. rychlost", "value": f"{avg_spd*3.6:.1f} km/h"})
+                max_spd = session.get('enhanced_max_speed') or session.get('max_speed', 0)
+                if max_spd: fields.append({"label": "Max. rychlost", "value": f"{max_spd*3.6:.1f} km/h"})
+                if session.get('avg_heart_rate'): fields.append({"label": "Prům. TF", "value": f"{session['avg_heart_rate']} bpm"})
+                if session.get('max_heart_rate'): fields.append({"label": "Max. TF", "value": f"{session['max_heart_rate']} bpm"})
+                if session.get('avg_cadence'): fields.append({"label": "Prům. kadence", "value": f"{session['avg_cadence']} rpm"})
+                if session.get('total_ascent'): fields.append({"label": "Převýšení +", "value": f"{session['total_ascent']} m"})
+                if session.get('total_descent'): fields.append({"label": "Převýšení −", "value": f"{session['total_descent']} m"})
+                if fields:
+                    data["overview"] = fields
+            except Exception:
+                pass
+
     json_path.write_text(json.dumps(data))
 PYJSON
 
