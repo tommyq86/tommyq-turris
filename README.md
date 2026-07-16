@@ -56,21 +56,31 @@ Configuration and scripts for Turris MOX router.
 
 ## Deployment
 
+### Selective deployment (recommended)
+
+```bash
+./deploy.sh <components...> [--host root@turris]
+```
+
+Components:
+- `lighttpd` — modules, configs, reverse proxy (restarts lighttpd)
+- `scripts` — shell scripts to `/root/scripts/`
+- `dashboard` — web dashboard (`/www/tommyq/`)
+- `system` — DNS, kresd, dnsmasq, hosts, CA cert (restarts DNS services)
+- `sport` — CGI, Python scripts, activity.html, cron jobs
+
+Examples:
+```bash
+./deploy.sh sport              # deploy only sport service
+./deploy.sh lighttpd sport     # lighttpd + sport
+./deploy.sh system --host root@192.168.2.1
+```
+
 ### Complete deployment
 
 ```bash
-./deploy.sh [root@turris]
+./deploy.sh                    # no arguments = deploy all components
 ```
-
-Deploys:
-- Lighttpd configuration (with sport token injection)
-- Scripts to `/root/scripts/`
-- System configuration (updater, Knot Resolver, hosts, dnsmasq)
-- Web dashboard
-- Sport service (CGI scripts, activity template, Python scripts from tommyq-python)
-- CA certificate (if missing)
-- Cron jobs (sport generation, device alerts)
-- Verifies running services
 
 ### Lighttpd configuration only
 
