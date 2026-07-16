@@ -91,6 +91,59 @@ except ImportError:
 PYFIT
 fi
 
+# Fetch HR zones from Bryton API for activities missing them
+python3 - "$ACTIVITIES_DIR" << 'PYZONES'
+import sys, json
+from pathlib import Path
+
+activities_dir = Path(sys.argv[1])
+
+# Find Bryton activities missing hr_zones
+needs_zones = []
+for f in activities_dir.glob("*.json"):
+    # Only Bryton activities (IDs starting with letters/digits, length > 10)
+    if len(f.stem) < 10:
+        continue
+    data = json.loads(f.read_text())
+    if "hr_zones" not in data:
+        needs_zones.append(f.stem)
+
+if not needs_zones:
+    sys.exit(0)
+
+# Connect to Bryton API and fetch zones
+try:
+    sys.path.insert(0, "/root/sport")
+    sys.path.insert(0, "/root")
+    from bryton import connect_and_login, load_config
+    import time
+
+    cfg = load_config()
+    client = connect_and_login(cfg)
+    client.subscribe("activityList")
+    time.sleep(1)
+
+    for aid in needs_zones:
+        try:
+            result = client.call("activity.detail.2", [aid])
+            if not result:
+                continue
+            vendor = result.get("vendor", {})
+            summary = vendor.get("summary", {})
+            zones = summary.get("time_in_hr_zone")
+            if zones and any(z > 0 for z in zones):
+                json_path = activities_dir / f"{aid}.json"
+                data = json.loads(json_path.read_text())
+                data["hr_zones"] = zones
+                json_path.write_text(json.dumps(data))
+        except Exception:
+            continue
+
+    client.close()
+except Exception:
+    pass
+PYZONES
+
 # Generate JSON from HTML source files
 python3 - "$ACTIVITIES_DIR" << 'PYJSON'
 import sys, re, json, urllib.request
@@ -231,26 +284,20 @@ for f in activities_dir.glob("*.html"):
                 # Heart rate
                 if session.get('avg_heart_rate'): fields.append({"label": "Prům. TF", "value": f"{session['avg_heart_rate']} bpm"})
                 if session.get('max_heart_rate'): fields.append({"label": "Max. TF", "value": f"{session['max_heart_rate']} bpm"})
-                # HR zones (calculated from JSON hr data)
-                max_hr = session.get('max_heart_rate', 0)
-                hr_data = data.get("hr", [])
-                elapsed = session.get('total_elapsed_time', 0)
-                if max_hr and hr_data and elapsed:
-                    interval = elapsed / len(hr_data)
-                    zone_secs = [0]*5
-                    for hr in hr_data:
-                        if hr and hr > 0:
-                            pct = hr / max_hr
-                            if pct >= 0.9: zone_secs[4] += interval
-                            elif pct >= 0.8: zone_secs[3] += interval
-                            elif pct >= 0.7: zone_secs[2] += interval
-                            elif pct >= 0.6: zone_secs[1] += interval
-                            elif pct >= 0.5: zone_secs[0] += interval
-                    total_z = sum(zone_secs)
-                    if total_z > 0:
-                        for i, s in enumerate(zone_secs):
-                            if s > 0:
-                                fields.append({"label": f"Zóna {i+1}", "value": f"{fmt_time(s)}  ({s*100/total_z:.0f}%)"})
+                # HR zones from Bryton API data
+                hr_zones = data.get("hr_zones")
+                if hr_zones and any(z > 0 for z in hr_zones):
+                    zone_names = ["Regenerační", "Aerobní", "Tempo", "Anaerobní", "Maximální", "Zóna 6", "Zóna 7", "Zóna 8"]
+                    total_z = sum(hr_zones)
+                    for i, ms in enumerate(hr_zones):
+                        if ms > 0:
+                            secs = ms / 1000
+                            pct = ms * 100 / total_z
+                            h, rem = divmod(int(secs), 3600)
+                            m, sec = divmod(rem, 60)
+                            time_str = f"{h}:{m:02d}:{sec:02d}" if h else f"{m}:{sec:02d}"
+                            name = zone_names[i] if i < len(zone_names) else f"Zóna {i+1}"
+                            fields.append({"label": f"Z{i+1} {name}", "value": f"{time_str}  ({pct:.0f}%)"})
                 if fields:
                     data["overview"] = fields
             except Exception:
