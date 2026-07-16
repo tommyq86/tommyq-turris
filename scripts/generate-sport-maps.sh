@@ -181,7 +181,7 @@ def fetch_weather(lat, lon, date_str, hour):
         f"https://archive-api.open-meteo.com/v1/archive"
         f"?latitude={lat:.4f}&longitude={lon:.4f}"
         f"&start_date={date_str}&end_date={date_str}"
-        f"&hourly=temperature_2m,relative_humidity_2m,precipitation,windspeed_10m,windgusts_10m,weathercode"
+        f"&hourly=temperature_2m,relative_humidity_2m,precipitation,windspeed_10m,windgusts_10m,winddirection_10m,weathercode"
     )
     try:
         with urllib.request.urlopen(url, timeout=10) as resp:
@@ -197,6 +197,7 @@ def fetch_weather(lat, lon, date_str, hour):
             "precipitation": hourly.get("precipitation", [None])[hour],
             "wind_speed": hourly.get("windspeed_10m", [None])[hour],
             "wind_gusts": hourly.get("windgusts_10m", [None])[hour],
+            "wind_direction": hourly.get("winddirection_10m", [None])[hour],
         }
     except Exception:
         return None

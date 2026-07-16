@@ -62,6 +62,10 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
     if (w.wind_speed != null) {
       var ws = 'Vítr ' + w.wind_speed + ' km/h';
       if (w.wind_gusts && w.wind_gusts > w.wind_speed) ws += ' (nárazy ' + w.wind_gusts + ' km/h)';
+      if (w.wind_direction != null) {
+        var dirs = ['S','SSV','SV','VSV','V','VJV','JV','JJV','J','JJZ','JZ','ZJZ','Z','ZSZ','SZ','SSZ'];
+        ws += ' ' + dirs[Math.round(w.wind_direction / 22.5) % 16];
+      }
       parts.push(ws);
     }
     document.getElementById('weather').innerHTML = parts.map(function(p) { return '<span>' + p + '</span>'; }).join('');
@@ -76,7 +80,14 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
     if (d.weather.conditions) wp.push(d.weather.conditions);
     if (d.weather.temperature != null) wp.push(d.weather.temperature + ' °C');
     if (d.weather.humidity != null) wp.push('Vlhkost ' + d.weather.humidity + ' %');
-    if (d.weather.wind_speed != null) wp.push('Vítr ' + d.weather.wind_speed + ' km/h');
+    if (d.weather.wind_speed != null) {
+      var wd = 'Vítr ' + d.weather.wind_speed + ' km/h';
+      if (d.weather.wind_direction != null) {
+        var dirs = ['S','SSV','SV','VSV','V','VJV','JV','JJV','J','JJZ','JZ','ZJZ','Z','ZSZ','SZ','SSZ'];
+        wd += ' ' + dirs[Math.round(d.weather.wind_direction / 22.5) % 16];
+      }
+      wp.push(wd);
+    }
     activityInfo.weather = wp.join(', ');
   }
 
