@@ -209,10 +209,14 @@ if has_component sport; then
     PYTHON_COMMON="$SCRIPT_DIR/../tommyq-python/common"
 
     # Python scripts
-    ssh "$TURRIS_HOST" "mkdir -p /root/sport /root/common"
+    ssh "$TURRIS_HOST" "mkdir -p /root/sport /root/common /root/scripts"
     scp "$PYTHON_SPORT/bryton.py" "$TURRIS_HOST:/root/sport/"
     scp "$PYTHON_SPORT/import_activity.py" "$TURRIS_HOST:/root/sport/"
     scp "$PYTHON_COMMON"/*.py "$TURRIS_HOST:/root/common/"
+
+    # Sport shell script
+    scp "$SCRIPT_DIR/scripts/generate-sport-maps.sh" "$TURRIS_HOST:/root/scripts/"
+    ssh "$TURRIS_HOST" "chmod +x /root/scripts/generate-sport-maps.sh"
 
     # Install Python modules if missing
     ssh "$TURRIS_HOST" "python3 -c 'import websocket' 2>/dev/null" || {
