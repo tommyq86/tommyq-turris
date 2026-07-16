@@ -102,8 +102,9 @@ Features: map with route, charts (altitude/speed/HR/gradient), GPX export (route
 
 Regeneration:
 ```bash
-ssh turris '/root/scripts/generate-sport-maps.sh'       # full (fetch + generate)
-ssh turris '/root/scripts/generate-sport-maps.sh list-only'  # regenerate index only
+ssh turris '/root/scripts/generate-sport-maps.sh'              # full (fetch + generate)
+ssh turris '/root/scripts/generate-sport-maps.sh list-only'    # regenerate index only
+ssh turris '/root/scripts/generate-sport-maps.sh <ID>'         # regenerate specific activity (weather, overview, zones)
 ```
 
 ### Merged activities
