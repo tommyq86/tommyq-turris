@@ -138,6 +138,10 @@ if has_component scripts; then
         scp "$script" "$TURRIS_HOST:/root/scripts/"
         ssh "$TURRIS_HOST" "chmod +x /root/scripts/$filename"
     done
+    
+    # Add cron job for kresd-watchdog
+    ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q kresd-watchdog || (crontab -l 2>/dev/null; echo '*/2 * * * * /root/scripts/kresd-watchdog.sh >/dev/null 2>&1') | crontab -"
+    
     echo "  ✓ Scripts deployed"
     echo ""
 fi

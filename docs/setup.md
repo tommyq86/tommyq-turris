@@ -39,6 +39,9 @@ The script `scripts/turris-backup.sh` handles automated backups of `/etc` and ot
 ### Memory Monitoring
 `scripts/turris-mem-monitor.sh` monitors memory usage and restarts services if necessary.
 
+### DNS Monitoring
+`scripts/kresd-watchdog.sh` monitors kresd DNS service and restarts it if not running or not responding. Runs every 2 minutes via cron.
+
 ## Troubleshooting
 
 ### Assistant service not working
