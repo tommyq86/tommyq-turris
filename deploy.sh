@@ -163,6 +163,10 @@ if has_component system; then
     ssh "$TURRIS_HOST" "uci set resolver.kresd=kresd; uci set resolver.kresd.include_config='/etc/kresd/custom.conf'; uci commit resolver"
     echo "  ✓ Knot Resolver config"
 
+    # Fix kresd init script - prevent empty line in hints.tmp
+    ssh "$TURRIS_HOST" "sed -i 's/echo \"\" > \\\$HINTS_CONFIG/> \\\$HINTS_CONFIG/' /etc/init.d/kresd"
+    echo "  ✓ Knot Resolver init script patch"
+
     scp "$SCRIPT_DIR/system/hosts" "$TURRIS_HOST:/etc/hosts"
     echo "  ✓ Hosts file"
 

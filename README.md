@@ -66,7 +66,7 @@ Components:
 - `lighttpd` — modules, configs, reverse proxy (restarts lighttpd)
 - `scripts` — shell scripts to `/root/scripts/`
 - `dashboard` — web dashboard (`/www/tommyq/`)
-- `system` — DNS, kresd, dnsmasq, hosts, CA cert (restarts DNS services)
+- `system` — DNS, kresd, dnsmasq, hosts, CA cert, kresd init script fix (restarts DNS services)
 - `sport` — CGI, Python scripts, activity.html, cron jobs
 
 Examples:
