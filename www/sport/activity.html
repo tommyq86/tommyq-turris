@@ -163,7 +163,9 @@ function copyOverview() {
     var lines = [];
     if (activityInfo) {
       lines.push(activityInfo.name);
-      lines.push(activityInfo.subtitle);
+      var sub = activityInfo.subtitle;
+      if (sub.startsWith(activityInfo.name + ' · ')) sub = sub.slice(activityInfo.name.length + 3);
+      lines.push(sub);
       if (activityInfo.weather) lines.push(activityInfo.weather);
       lines.push('');
     }
