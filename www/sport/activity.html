@@ -52,7 +52,7 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
 .then(function(d) {
   document.title = d.name + ' - ' + d.date_str;
   document.getElementById('title').textContent = d.name;
-  document.getElementById('subtitle').textContent = d.subtitle;
+  document.getElementById('subtitle').textContent = d.subtitle.startsWith(d.name + ' · ') ? d.subtitle.slice(d.name.length + 3) : d.subtitle;
   // Weather
   if (d.weather) {
     var w = d.weather, parts = [];
