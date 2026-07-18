@@ -113,72 +113,6 @@ except ImportError:
 PYFIT
 fi
 
-# Fetch HR zones from Bryton API for activities missing them
-python3 - "$ACTIVITIES_DIR" << 'PYZONES'
-import sys, json
-from pathlib import Path
-
-activities_dir = Path(sys.argv[1])
-
-# Find activities missing hr_zones and collect Bryton IDs to fetch
-needs_zones = []  # (json_path, [source_bryton_ids])
-for f in activities_dir.glob("*.json"):
-    data = json.loads(f.read_text())
-    if "hr_zones" in data:
-        continue
-    stem = f.stem
-    if stem.startswith("merged_"):
-        # Extract Bryton IDs from filename: merged_ID1_ID2
-        parts = stem.replace("merged_", "").split("_")
-        bryton_ids = [p for p in parts if len(p) > 10 and p.isalnum()]
-        if bryton_ids:
-            needs_zones.append((f, bryton_ids))
-    elif len(stem) > 10 and stem.isalnum():
-        needs_zones.append((f, [stem]))
-
-if not needs_zones:
-    sys.exit(0)
-
-# Connect to Bryton API and fetch zones
-try:
-    sys.path.insert(0, "/root/sport")
-    sys.path.insert(0, "/root")
-    from bryton import connect_and_login, load_config
-    import time
-
-    cfg = load_config()
-    client = connect_and_login(cfg)
-    client.subscribe("activityList")
-    time.sleep(1)
-
-    for json_path, source_ids in needs_zones:
-        try:
-            combined_zones = None
-            for aid in source_ids:
-                result = client.call("activity.detail.2", [aid])
-                if not result:
-                    continue
-                vendor = result.get("vendor", {})
-                summary = vendor.get("summary", {})
-                zones = summary.get("time_in_hr_zone")
-                if zones and any(z > 0 for z in zones):
-                    if combined_zones is None:
-                        combined_zones = list(zones)
-                    else:
-                        for i in range(min(len(combined_zones), len(zones))):
-                            combined_zones[i] += zones[i]
-            if combined_zones and any(z > 0 for z in combined_zones):
-                data = json.loads(json_path.read_text())
-                data["hr_zones"] = combined_zones
-                json_path.write_text(json.dumps(data))
-        except Exception:
-            continue
-
-    client.close()
-except Exception:
-    pass
-PYZONES
-
 # Generate JSON from HTML source files
 python3 - "$ACTIVITIES_DIR" << 'PYJSON'
 import sys, re, json, urllib.request
@@ -341,6 +275,104 @@ for f in activities_dir.glob("*.html"):
 
     json_path.write_text(json.dumps(data))
 PYJSON
+
+# Fetch HR zones from Bryton API for activities missing them
+python3 - "$ACTIVITIES_DIR" << 'PYZONES'
+import sys, json
+from pathlib import Path
+
+activities_dir = Path(sys.argv[1])
+
+# Find activities missing hr_zones and collect Bryton IDs to fetch
+needs_zones = []  # (json_path, [source_bryton_ids])
+for f in activities_dir.glob("*.json"):
+    data = json.loads(f.read_text())
+    if "hr_zones" in data:
+        continue
+    stem = f.stem
+    if stem.startswith("merged_"):
+        parts = stem.replace("merged_", "").split("_")
+        bryton_ids = [p for p in parts if len(p) > 10 and p.isalnum()]
+        if bryton_ids:
+            needs_zones.append((f, bryton_ids))
+    elif len(stem) > 10 and stem.isalnum():
+        needs_zones.append((f, [stem]))
+
+if not needs_zones:
+    sys.exit(0)
+
+# Connect to Bryton API and fetch zones
+try:
+    sys.path.insert(0, "/root/sport")
+    sys.path.insert(0, "/root")
+    from bryton import connect_and_login, load_config
+    import time
+
+    cfg = load_config()
+    client = connect_and_login(cfg)
+    client.subscribe("activityList")
+    time.sleep(1)
+
+    for json_path, source_ids in needs_zones:
+        try:
+            combined_zones = None
+            for aid in source_ids:
+                result = client.call("activity.detail.2", [aid])
+                if not result:
+                    continue
+                vendor = result.get("vendor", {})
+                summary = vendor.get("summary", {})
+                zones = summary.get("time_in_hr_zone")
+                if zones and any(z > 0 for z in zones):
+                    if combined_zones is None:
+                        combined_zones = list(zones)
+                    else:
+                        for i in range(min(len(combined_zones), len(zones))):
+                            combined_zones[i] += zones[i]
+            if combined_zones and any(z > 0 for z in combined_zones):
+                data = json.loads(json_path.read_text())
+                data["hr_zones"] = combined_zones
+                json_path.write_text(json.dumps(data))
+        except Exception:
+            continue
+
+    client.close()
+except Exception:
+    pass
+PYZONES
+
+# Append HR zones to overview where missing
+python3 - "$ACTIVITIES_DIR" << 'PYOVZONES'
+import sys, json
+from pathlib import Path
+
+activities_dir = Path(sys.argv[1])
+zone_names = ["Zotavení", "Nízká intenzita", "Aerobní", "Anaerobní", "Maximální", "Nadmaximální", "Zóna 7", "Zóna 8"]
+
+for f in activities_dir.glob("*.json"):
+    data = json.loads(f.read_text())
+    hr_zones = data.get("hr_zones")
+    overview = data.get("overview")
+    if not hr_zones or not overview:
+        continue
+    # Check if zones already in overview
+    if any(field["label"].startswith("Z") and "óna" in field["label"] or field["label"].startswith("Z") and " " in field["label"] for field in overview):
+        continue
+    if not any(z > 0 for z in hr_zones):
+        continue
+    total_z = sum(hr_zones)
+    for i, ms in enumerate(hr_zones):
+        if ms > 0:
+            secs = ms / 1000
+            pct = ms * 100 / total_z
+            h, rem = divmod(int(secs), 3600)
+            m, sec = divmod(rem, 60)
+            time_str = f"{h}:{m:02d}:{sec:02d}" if h else f"{m}:{sec:02d}"
+            name = zone_names[i] if i < len(zone_names) else f"Zóna {i+1}"
+            overview.append({"label": f"Z{i+1} {name}", "value": f"{time_str}  ({pct:.0f}%)"})
+    data["overview"] = overview
+    f.write_text(json.dumps(data))
+PYOVZONES
 
 # Generate index page
 python3 - "$ACTIVITIES_DIR" "$TOKEN" "$PUBLIC_TOKEN" << 'PYTHON'
