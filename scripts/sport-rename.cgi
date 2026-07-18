@@ -35,7 +35,6 @@ import sys, json
 path, name = sys.argv[1], sys.argv[2]
 data = json.loads(open(path).read())
 data['name'] = name
-data['subtitle'] = name + ' · ' + ' · '.join(data.get('subtitle','').split(' · ')[1:]) if ' · ' in data.get('subtitle','') else name
 open(path, 'w').write(json.dumps(data))
 " "$JSON_FILE" "$NAME"
 fi
