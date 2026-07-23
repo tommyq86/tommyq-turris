@@ -139,6 +139,12 @@ if has_component scripts; then
         ssh "$TURRIS_HOST" "chmod +x /root/scripts/$filename"
     done
     
+    # Memory monitor
+    echo "  memory-monitor.sh -> /usr/local/bin/"
+    scp "$SCRIPT_DIR/scripts/turris-mem-monitor.sh" "$TURRIS_HOST:/usr/local/bin/memory-monitor.sh"
+    ssh "$TURRIS_HOST" "chmod +x /usr/local/bin/memory-monitor.sh"
+    ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q memory-monitor || (crontab -l 2>/dev/null; echo '*/5 * * * * /usr/local/bin/memory-monitor.sh') | crontab -"
+
     # Add cron job for kresd-watchdog
     ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q kresd-watchdog || (crontab -l 2>/dev/null; echo '*/2 * * * * /root/scripts/kresd-watchdog.sh >/dev/null 2>&1') | crontab -"
     
