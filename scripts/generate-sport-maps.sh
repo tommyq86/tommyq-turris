@@ -440,7 +440,7 @@ button:disabled {{ opacity: 0.5; cursor: wait; }}
 <button id="refreshBtn" onclick="refresh(this)" style="display:none">🔄 Aktualizovat</button>
 <button id="shareListBtn" onclick="share(this,'?token=""" + public_token + f"""')" style="display:none" title="Kopírovat odkaz na seznam">🔗 Sdílet seznam</button>
 <button id="deleteAllBtn" onclick="deleteAll(this)" style="display:none">🗑️ Smazat vše</button>
-<button id="loginBtn" onclick="loginAdmin()" style="display:none">🔑 Přihlásit</button>
+<button id="loginBtn" onclick="loginAdmin()" style="display:none;position:fixed;top:8px;right:8px;background:none;border:none;color:#555;font-size:1.2rem;padding:4px;cursor:pointer;opacity:0.5" title="Přihlásit jako admin">🔑</button>
 <span class="totals">Celkem: {total_km:.1f} km""" + (f" · {fmt_time(total_seconds)}" if total_seconds else "") + """</span>
 </div>
 <div class="list">
