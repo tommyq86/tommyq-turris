@@ -14,9 +14,9 @@ h1 { margin: 0; font-size: 1.2em; white-space: nowrap; }
 .weather span { background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 4px; }
 .leaflet-attribution-flag { display: none !important; }
 #map { flex: 5; border-radius: 8px; min-height: 0; touch-action: none; }
-.chart-box { flex: 1; background: #16213e; border-radius: 8px; padding: 8px; margin-top: 0; min-height: 100px; display: flex; overflow: hidden; }
+.chart-box { flex: 1; background: #16213e; border-radius: 8px; padding: 8px; margin-top: 0; min-height: 100px; display: flex; overflow: hidden; transition: flex 0.2s ease; }
 .chart-box.hidden { display: none; }
-.chart-handle { height: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; margin-top: 4px; }
+.chart-handle { height: 18px; cursor: ns-resize; display: flex; align-items: center; justify-content: center; margin-top: 4px; touch-action: none; user-select: none; }
 .chart-handle::after { content: ''; width: 40px; height: 3px; background: rgba(255,255,255,0.3); border-radius: 2px; }
 .chart-handle:hover::after { background: rgba(255,255,255,0.6); }
 #comboChart { width: 100% !important; height: 100% !important; }
@@ -42,7 +42,8 @@ h1 { margin: 0; font-size: 1.2em; white-space: nowrap; }
 </div></div>
 <div id="map"></div>
 <div id="overviewTooltip"></div>
-<div class="chart-handle" onclick="toggleChart()"></div>
+<div class="chart-handle" id="chartHandle"></div>
+<div id="chartToggles" style="display:none;gap:6px;flex-wrap:wrap;padding:2px 4px"></div>
 <div class="chart-box"><canvas id="comboChart"></canvas></div>
 <script>
 var params = new URLSearchParams(location.search);
@@ -97,10 +98,11 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
   }
 
   // Admin features
+  var forcePub = params.get('pub') === '1';
   fetch('cgi/api.cgi?token=' + token + '&id=check-admin')
   .then(r => r.json()).then(function(r) {
     if (r.public_token) publicToken = r.public_token;
-    if (r.admin || isAuthed) {
+    if (!forcePub && (r.admin || isAuthed)) {
       document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('admin-only'));
     } else {
       document.getElementById('loginBtn').style.display = '';
@@ -129,7 +131,7 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
   // Chart
   var posMarker = L.circleMarker([0,0], {radius: 8, color: '#fff', weight: 3, fillColor: '#ff6b35', fillOpacity: 1});
   var coordsChart = (d.coords_sampled && d.coords_sampled.length) ? d.coords_sampled : d.coords;
-  new Chart(document.getElementById('comboChart'), {
+  var chart = new Chart(document.getElementById('comboChart'), {
     type: 'line',
     data: {
       labels: d.dist.map(v => v.toFixed(2)),
@@ -137,7 +139,7 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
         { label: 'Nadm. výška (m)', data: d.alt, borderColor: '#f39c12', backgroundColor: '#f39c1233', borderWidth: 1.5, pointRadius: 0, fill: true, yAxisID: 'yAlt', spanGaps: true },
         { label: 'Rychlost (km/h)', data: d.spd, borderColor: '#3498db', borderWidth: 1.5, pointRadius: 0, fill: false, yAxisID: 'ySpd', spanGaps: true },
         { label: 'TF (bpm)', data: d.hr, borderColor: '#e74c3c', borderWidth: 1.5, pointRadius: 0, fill: false, yAxisID: 'yHr', spanGaps: true },
-        { label: 'Sklon (%)', data: d.grad, borderColor: 'transparent', borderWidth: 0, pointRadius: 0, fill: false, yAxisID: 'yHr', spanGaps: true, hidden: false }
+        { label: 'Sklon (%)', data: d.grad, borderColor: 'transparent', borderWidth: 0, pointRadius: 0, fill: false, yAxisID: 'yHr', spanGaps: true }
       ]
     },
     options: {
@@ -149,8 +151,8 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
         yHr: { type: 'linear', position: 'right', display: window.innerWidth > 768, ticks: { color: '#e74c3c' }, grid: { drawOnChartArea: false } }
       },
       plugins: {
-        legend: { display: window.innerWidth > 768, labels: { color: '#eee', filter: item => !item.text.includes('%') } },
-        tooltip: { callbacks: { title: items => items[0].label + ' km' } }
+        legend: { display: false },
+        tooltip: { callbacks: { title: items => items[0].label + ' km', label: function(ctx) { if (ctx.dataset.label === 'Sklon (%)') { return ctx.raw != null ? 'Sklon: ' + ctx.raw.toFixed(1) + ' %' : null; } return ctx.dataset.label.split('(')[0].trim() + ': ' + (ctx.raw != null ? ctx.raw.toFixed(1) : '–'); } } }
       },
       onHover: function(event, elements, chart) {
         var points = chart.getElementsAtEventForMode(event, 'index', { intersect: false }, true);
@@ -163,6 +165,44 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
     }
   });
   document.getElementById('comboChart').addEventListener('mouseleave', function() { if (map) map.removeLayer(posMarker); });
+
+  // Dataset toggles
+  var toggles = document.getElementById('chartToggles');
+  var dsConfig = [
+    {idx: 0, label: 'Výška', color: '#f39c12'},
+    {idx: 1, label: 'Rychlost', color: '#3498db'},
+    {idx: 2, label: 'TF', color: '#e74c3c'}
+  ];
+  if (d.cad && d.cad.some(function(v){return v;})) {
+    chart.data.datasets.push({label:'Kadence (rpm)',data:d.cad,borderColor:'#9b59b6',borderWidth:1.5,pointRadius:0,fill:false,yAxisID:'yHr',spanGaps:true,hidden:true});
+    chart.update('none');
+    dsConfig.push({idx: chart.data.datasets.length-1, label: 'Kadence', color: '#9b59b6'});
+  }
+  if (d.pwr && d.pwr.some(function(v){return v;})) {
+    chart.data.datasets.push({label:'Výkon (W)',data:d.pwr,borderColor:'#2ecc71',borderWidth:1.5,pointRadius:0,fill:false,yAxisID:'yHr',spanGaps:true,hidden:true});
+    chart.update('none');
+    dsConfig.push({idx: chart.data.datasets.length-1, label: 'Výkon', color: '#2ecc71'});
+  }
+  dsConfig.forEach(function(c) {
+    var btn = document.createElement('button');
+    var ds = chart.data.datasets[c.idx];
+    var visible = !ds.hidden && ds.borderColor !== 'transparent';
+    btn.textContent = c.label;
+    btn.style.cssText = 'border:none;border-radius:12px;padding:2px 8px;font-size:0.75rem;cursor:pointer;transition:all .2s;';
+    function updateStyle() {
+      if (visible) { btn.style.background = c.color; btn.style.color = '#fff'; }
+      else { btn.style.background = 'rgba(255,255,255,0.1)'; btn.style.color = '#888'; }
+    }
+    updateStyle();
+    btn.onclick = function() {
+      visible = !visible;
+      ds.hidden = !visible;
+      chart.update('none');
+      updateStyle();
+    };
+    toggles.appendChild(btn);
+  });
+  toggles.style.display = 'flex';
 }).catch(function() {
   document.getElementById('title').textContent = 'Aktivita nenalezena';
 });
@@ -227,6 +267,45 @@ function toggleChart() {
   box.classList.toggle('hidden');
   if (map) setTimeout(function() { map.invalidateSize(); }, 250);
 }
+(function() {
+  var handle = document.getElementById('chartHandle');
+  var chartBox = document.querySelector('.chart-box');
+  var mapEl = document.getElementById('map');
+  var dragging = false, startY = 0, startFlex = 0, moved = false;
+  var minFlex = 0.5, maxFlex = 5;
+
+  function getY(e) { return e.touches ? e.touches[0].clientY : e.clientY; }
+
+  function onStart(e) {
+    if (chartBox.classList.contains('hidden')) { chartBox.classList.remove('hidden'); if(map) map.invalidateSize(); return; }
+    dragging = true; moved = false;
+    startY = getY(e);
+    startFlex = parseFloat(chartBox.style.flex) || parseFloat(getComputedStyle(chartBox).flexGrow) || 1;
+    e.preventDefault();
+  }
+  function onMove(e) {
+    if (!dragging) return;
+    var dy = startY - getY(e);
+    if (Math.abs(dy) > 5) moved = true;
+    var containerH = mapEl.offsetHeight + chartBox.offsetHeight;
+    var newFlex = Math.max(minFlex, Math.min(maxFlex, startFlex + (dy / containerH) * 5));
+    chartBox.style.flex = newFlex;
+    e.preventDefault();
+  }
+  function onEnd() {
+    if (!dragging) return;
+    dragging = false;
+    if (!moved) toggleChart();
+    if (map) map.invalidateSize();
+  }
+
+  handle.addEventListener('mousedown', onStart);
+  handle.addEventListener('touchstart', onStart, {passive: false});
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('touchmove', onMove, {passive: false});
+  document.addEventListener('mouseup', onEnd);
+  document.addEventListener('touchend', onEnd);
+})();
 function exportGpx() {
   if (!coords || !coords.length) return;
   var trkpts = coords.map(c => '<trkpt lat="'+c[0]+'" lon="'+c[1]+'"></trkpt>').join('\n');

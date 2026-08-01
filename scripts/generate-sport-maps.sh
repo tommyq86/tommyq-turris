@@ -213,6 +213,27 @@ for f in activities_dir.glob("*.html"):
             "grad": extract("grad"),
         }
 
+    # Extract cadence from FIT file (if not already present)
+    if "cad" not in data:
+        fit_path = f.with_suffix('.fit')
+        if fit_path.exists():
+            try:
+                import fitparse
+                fit = fitparse.FitFile(str(fit_path))
+                cad_data = []
+                n = len(data.get("dist", []))
+                step = 1
+                count = 0
+                for msg in fit.get_messages("record"):
+                    fields = {field.name: field.value for field in msg.fields}
+                    cad_data.append(fields.get("cadence"))
+                    count += 1
+                if cad_data and n > 0:
+                    step = max(1, len(cad_data) // n)
+                    data["cad"] = cad_data[::step][:n]
+            except Exception:
+                pass
+
     # Fetch weather at midpoint of activity (if not already present)
     if coords and date_str and "weather" not in data:
         try:
