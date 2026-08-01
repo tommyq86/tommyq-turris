@@ -14,7 +14,9 @@ h1 { margin: 0 0 2px; font-size: 1.2em; }
 .weather span { background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 4px; }
 .leaflet-attribution-flag { display: none !important; }
 #map { flex: 5; border-radius: 8px; min-height: 0; touch-action: none; }
-.chart-box { flex: 1; background: #16213e; border-radius: 8px; padding: 8px; margin-top: 8px; min-height: 100px; display: flex; }
+.chart-box { flex: 1; background: #16213e; border-radius: 8px; padding: 8px; margin-top: 8px; min-height: 100px; display: flex; transition: all 0.2s; }
+.chart-box.hidden { display: none; }
+#chartToggle { position: absolute; bottom: 12px; left: 12px; background: rgba(30,42,74,0.9); border: 1px solid #3a4a6a; color: #eee; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; z-index: 1000; }
 #comboChart { width: 100% !important; height: 100% !important; }
 #shareBar { position: fixed; top: 8px; right: 8px; display: flex; gap: 4px; z-index: 9999; flex-wrap: wrap; justify-content: flex-end; }
 #shareBar button, #shareBar a { background: #ff6b35; border: none; color: #fff; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 1rem; text-decoration: none; }
@@ -39,6 +41,7 @@ h1 { margin: 0 0 2px; font-size: 1.2em; }
 <button id="renameBtn" class="admin-only" onclick="renameActivity()" title="Přejmenovat">✏️</button>
 </div>
 <div id="map"></div>
+<button id="chartToggle" onclick="toggleChart()">📉 Graf</button>
 <div id="overviewTooltip"></div>
 <div class="chart-box"><canvas id="comboChart"></canvas></div>
 <script>
@@ -206,6 +209,11 @@ function showOverview(btn) {
   }
 }
 function hideOverview() { document.getElementById('overviewTooltip').style.display = 'none'; }
+function toggleChart() {
+  var box = document.querySelector('.chart-box');
+  box.classList.toggle('hidden');
+  if (map) setTimeout(function() { map.invalidateSize(); }, 250);
+}
 function exportGpx() {
   if (!coords || !coords.length) return;
   var trkpts = coords.map(c => '<trkpt lat="'+c[0]+'" lon="'+c[1]+'"></trkpt>').join('\n');
