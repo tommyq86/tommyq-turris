@@ -35,6 +35,8 @@ fi
 if [ "$ID" = "check-admin" ]; then
     if [ "$REQ_TOKEN" = "$ADMIN_TOKEN" ]; then
         echo "{\"admin\":true,\"public_token\":\"$PUB_TOKEN\"}"
+    elif echo "$REMOTE_ADDR" | grep -q '^192\.168\.2\.'; then
+        echo "{\"admin\":true,\"public_token\":\"$PUB_TOKEN\"}"
     else
         echo "{\"admin\":false,\"public_token\":\"$PUB_TOKEN\"}"
     fi

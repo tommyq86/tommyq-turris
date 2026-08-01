@@ -440,6 +440,7 @@ button:disabled {{ opacity: 0.5; cursor: wait; }}
 <button id="refreshBtn" onclick="refresh(this)" style="display:none">🔄 Aktualizovat</button>
 <button id="shareListBtn" onclick="share(this,'?token=""" + public_token + f"""')" style="display:none" title="Kopírovat odkaz na seznam">🔗 Sdílet seznam</button>
 <button id="deleteAllBtn" onclick="deleteAll(this)" style="display:none">🗑️ Smazat vše</button>
+<button id="loginBtn" onclick="loginAdmin()" style="display:none">🔑 Přihlásit</button>
 <span class="totals">Celkem: {total_km:.1f} km""" + (f" · {fmt_time(total_seconds)}" if total_seconds else "") + """</span>
 </div>
 <div class="list">
@@ -455,14 +456,26 @@ html += """</div>
 <script>
 var isAdmin = location.search.includes('token=""" + token + """');
 var reqToken = new URLSearchParams(location.search).get('token');
-if (isAdmin) {
+var isAuthed = location.search.includes('auth=1');
+function enableAdmin() {
   document.getElementById('refreshBtn').style.display = '';
   document.getElementById('shareListBtn').style.display = '';
   document.getElementById('deleteAllBtn').style.display = '';
+  document.getElementById('loginBtn').style.display = 'none';
   document.querySelectorAll('.share').forEach(b => b.style.display = 'inline-block');
   document.querySelectorAll('.del').forEach(b => b.style.display = 'inline-block');
-  // Fix activity links to use admin token
   document.querySelectorAll('.list a').forEach(a => a.href = a.href.replace('token=""" + public_token + """', 'token=""" + token + """'));
+}
+if (isAdmin || isAuthed) {
+  enableAdmin();
+} else {
+  fetch('cgi/api.cgi?token=' + reqToken + '&id=check-admin').then(r => r.json()).then(function(r) {
+    if (r.admin) enableAdmin();
+    else document.getElementById('loginBtn').style.display = '';
+  }).catch(function() { document.getElementById('loginBtn').style.display = ''; });
+}
+function loginAdmin() {
+  location.href = 'cgi/auth.cgi?token=' + reqToken + '&redirect=' + encodeURIComponent(location.href);
 }
 function share(btn, path) {
   navigator.clipboard.writeText(location.origin + '/sport/' + path).then(() => {

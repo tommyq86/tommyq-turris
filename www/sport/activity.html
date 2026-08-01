@@ -48,6 +48,7 @@ h1 { margin: 0; font-size: 1.2em; white-space: nowrap; }
 var params = new URLSearchParams(location.search);
 var id = params.get('id');
 var token = params.get('token');
+var isAuthed = params.get('auth') === '1';
 var map, coords, publicToken = token, overviewData = null, activityInfo = null;
 
 fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
@@ -99,19 +100,10 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
   fetch('cgi/api.cgi?token=' + token + '&id=check-admin')
   .then(r => r.json()).then(function(r) {
     if (r.public_token) publicToken = r.public_token;
-    if (r.admin) {
+    if (r.admin || isAuthed) {
       document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('admin-only'));
     } else {
-      // Try auth endpoint (passes without password from LAN)
-      fetch('cgi/auth.cgi?token=' + token).then(function(resp) {
-        if (resp.ok) {
-          document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('admin-only'));
-        } else {
-          document.getElementById('loginBtn').style.display = '';
-        }
-      }).catch(function() {
-        document.getElementById('loginBtn').style.display = '';
-      });
+      document.getElementById('loginBtn').style.display = '';
     }
   }).catch(function(){});
 
@@ -296,15 +288,6 @@ function renameActivity() {
     });
 }
 function loginAdmin() {
-  // XMLHttpRequest triggers browser's native Basic auth dialog on 401
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', 'cgi/auth.cgi?token=' + token, true);
-  xhr.onload = function() {
-    if (xhr.status === 200) {
-      document.getElementById('loginBtn').style.display = 'none';
-      document.querySelectorAll('.admin-only').forEach(function(el) { el.classList.remove('admin-only'); });
-    }
-  };
-  xhr.send();
+  location.href = 'cgi/auth.cgi?token=' + token + '&redirect=' + encodeURIComponent(location.href);
 }
 </script></body></html>
