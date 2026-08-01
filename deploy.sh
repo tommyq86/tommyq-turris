@@ -219,8 +219,8 @@ fi
 # --- SPORT ---
 if has_component sport; then
     echo "▸ Deploying sport service..."
-    PYTHON_SPORT="$SCRIPT_DIR/../tommyq-python/sport"
-    PYTHON_COMMON="$SCRIPT_DIR/../tommyq-python/common"
+    PYTHON_SPORT="$SCRIPT_DIR/../tommyq-sport"
+    PYTHON_COMMON="$SCRIPT_DIR/../tommyq-sport/common"
 
     # Python scripts
     ssh "$TURRIS_HOST" "mkdir -p /root/sport /root/common /root/scripts"
