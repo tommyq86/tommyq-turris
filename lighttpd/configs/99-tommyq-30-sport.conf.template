@@ -1,6 +1,7 @@
-# tommyq.cz/sport/ - Token-based access control
-# admin token = full access + refresh button
+# tommyq.cz/sport/ - Token-based access control with HTTP Basic auth for admin actions
+# admin token = full access (refresh, delete, rename)
 # public token = view only (shareable links)
+# Admin actions from outside LAN require admin token OR HTTP Basic auth
 $HTTP["host"] == "tommyq.cz" {
     $HTTP["url"] =~ "^/sport" {
         $HTTP["querystring"] !~ "token=(__ADMIN_TOKEN__|__PUBLIC_TOKEN__)" {
@@ -9,7 +10,14 @@ $HTTP["host"] == "tommyq.cz" {
     }
     $HTTP["url"] =~ "^/sport/cgi/(refresh|delete|rename)" {
         $HTTP["querystring"] !~ "token=__ADMIN_TOKEN__" {
-            url.redirect = ( "" => "https://tommyq.cz/" )
+            $HTTP["remoteip"] != "192.168.2.0/24" {
+                auth.backend = "pam"
+                auth.require = ( "" => (
+                    "method" => "basic",
+                    "realm" => "Sport Admin",
+                    "require" => "valid-user"
+                ) )
+            }
         }
     }
     $HTTP["url"] =~ "^/sport/cgi/" {
