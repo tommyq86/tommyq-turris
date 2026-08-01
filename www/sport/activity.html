@@ -14,8 +14,12 @@ h1 { margin: 0 0 2px; font-size: 1.2em; }
 .weather span { background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 4px; }
 .leaflet-attribution-flag { display: none !important; }
 #map { flex: 5; border-radius: 8px; min-height: 0; touch-action: none; }
-.chart-box { flex: 1; background: #16213e; border-radius: 8px; padding: 8px; margin-top: 8px; min-height: 100px; display: flex; transition: all 0.2s; }
-.chart-box.hidden { display: none; }
+.chart-box { flex: 1; background: #16213e; border-radius: 8px; padding: 8px; margin-top: 8px; min-height: 100px; display: flex; flex-direction: column; transition: all 0.2s; }
+.chart-box.hidden { flex: 0; min-height: 0; padding: 0; }
+.chart-box.hidden canvas { display: none; }
+.chart-handle { height: 6px; min-height: 6px; cursor: pointer; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: center; }
+.chart-handle::after { content: ''; width: 40px; height: 3px; background: rgba(255,255,255,0.3); border-radius: 2px; }
+.chart-handle:hover::after { background: rgba(255,255,255,0.6); }
 #chartToggle { position: absolute; bottom: 12px; left: 12px; background: rgba(30,42,74,0.9); border: 1px solid #3a4a6a; color: #eee; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; z-index: 1000; }
 #comboChart { width: 100% !important; height: 100% !important; }
 #shareBar { position: fixed; top: 8px; right: 8px; display: flex; gap: 4px; z-index: 9999; flex-wrap: wrap; justify-content: flex-end; }
@@ -41,9 +45,8 @@ h1 { margin: 0 0 2px; font-size: 1.2em; }
 <button id="renameBtn" class="admin-only" onclick="renameActivity()" title="Přejmenovat">✏️</button>
 </div>
 <div id="map"></div>
-<button id="chartToggle" onclick="toggleChart()">📉 Graf</button>
 <div id="overviewTooltip"></div>
-<div class="chart-box"><canvas id="comboChart"></canvas></div>
+<div class="chart-box"><div class="chart-handle" onclick="toggleChart()"></div><canvas id="comboChart"></canvas></div>
 <script>
 var params = new URLSearchParams(location.search);
 var id = params.get('id');
