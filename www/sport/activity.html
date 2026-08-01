@@ -7,8 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 body { font-family: system-ui, sans-serif; margin: 0; padding: 8px; background: #1a1a2e; color: #eee; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
-h1 { margin: 0 0 2px; font-size: 1.2em; }
-.subtitle-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+h1 { margin: 0; font-size: 1.2em; white-space: nowrap; }
+.title-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
 .subtitle { color: #aaa; font-size: 0.9em; }
 .weather { color: #ccc; font-size: 0.85em; display: flex; gap: 10px; flex-wrap: wrap; }
 .weather span { background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 4px; }
@@ -32,8 +32,7 @@ h1 { margin: 0 0 2px; font-size: 1.2em; }
   #overviewTooltip { display: none !important; }
 }
 </style></head><body>
-<h1 id="title">Načítám...</h1>
-<div class="subtitle-row"><div class="subtitle" id="subtitle"></div><div class="weather" id="weather"></div></div>
+<div class="title-row"><h1 id="title">Načítám...</h1><div class="subtitle" id="subtitle"></div><div class="weather" id="weather"></div></div>
 <div id="shareBar">
 <button id="shareBtn" onclick="copyShareLink(this)" title="Kopírovat odkaz">🔗</button>
 <button onclick="copyOverview()" onmouseenter="showOverview(this)" onmouseleave="hideOverview()" title="Kopírovat přehled">📊</button>
