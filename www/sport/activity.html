@@ -38,6 +38,7 @@ h1 { margin: 0; font-size: 1.2em; white-space: nowrap; }
 <button onclick="exportGpx()" title="Stáhnout GPX trasu">📥 GPX</button>
 <a id="fitBtn" class="admin-only" title="Stáhnout FIT">📥 FIT</a>
 <button id="renameBtn" class="admin-only" onclick="renameActivity()" title="Přejmenovat">✏️</button>
+<button id="loginBtn" style="display:none" onclick="loginAdmin()" title="Přihlásit jako admin">🔑</button>
 </div></div>
 <div id="map"></div>
 <div id="overviewTooltip"></div>
@@ -98,7 +99,20 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
   fetch('cgi/api.cgi?token=' + token + '&id=check-admin')
   .then(r => r.json()).then(function(r) {
     if (r.public_token) publicToken = r.public_token;
-    if (r.admin) document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('admin-only'));
+    if (r.admin) {
+      document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('admin-only'));
+    } else {
+      // Try auth endpoint (passes without password from LAN)
+      fetch('cgi/auth.cgi?token=' + token).then(function(resp) {
+        if (resp.ok) {
+          document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('admin-only'));
+        } else {
+          document.getElementById('loginBtn').style.display = '';
+        }
+      }).catch(function() {
+        document.getElementById('loginBtn').style.display = '';
+      });
+    }
   }).catch(function(){});
 
   // Map
@@ -280,5 +294,17 @@ function renameActivity() {
     .then(r => r.json()).then(function(d) {
       if (d.status === 'renamed') { document.getElementById('title').textContent = name; document.title = name; }
     });
+}
+function loginAdmin() {
+  // XMLHttpRequest triggers browser's native Basic auth dialog on 401
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', 'cgi/auth.cgi?token=' + token, true);
+  xhr.onload = function() {
+    if (xhr.status === 200) {
+      document.getElementById('loginBtn').style.display = 'none';
+      document.querySelectorAll('.admin-only').forEach(function(el) { el.classList.remove('admin-only'); });
+    }
+  };
+  xhr.send();
 }
 </script></body></html>

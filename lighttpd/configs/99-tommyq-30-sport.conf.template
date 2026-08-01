@@ -8,7 +8,7 @@ $HTTP["host"] == "tommyq.cz" {
             url.redirect = ( "" => "https://tommyq.cz/" )
         }
     }
-    $HTTP["url"] =~ "^/sport/cgi/(refresh|delete|rename)" {
+    $HTTP["url"] =~ "^/sport/cgi/(refresh|delete|rename|auth)" {
         $HTTP["querystring"] !~ "token=__ADMIN_TOKEN__" {
             $HTTP["remoteip"] != "192.168.2.0/24" {
                 auth.backend = "pam"
