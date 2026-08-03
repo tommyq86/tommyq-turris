@@ -25,7 +25,7 @@ Komponenty:
     scripts     Shell skripty (/root/scripts/)
     dashboard   Webový dashboard (/www/tommyq/)
     system      DNS, kresd, dnsmasq, hosts, CA certifikát
-    sport       Sport service (CGI, Python skripty, activity.html)
+    sport       Sport service (CGI, Python skripty, activity, brouter, garage)
     all         Vše (výchozí, pokud není zadána žádná komponenta)
 
 Volby:
@@ -50,7 +50,7 @@ Components:
     scripts     Shell scripts (/root/scripts/)
     dashboard   Web dashboard (/www/tommyq/)
     system      DNS, kresd, dnsmasq, hosts, CA certificate
-    sport       Sport service (CGI, Python scripts, activity.html)
+    sport       Sport service (CGI, Python scripts, activity, brouter, garage)
     all         Everything (default if no component specified)
 
 Options:
@@ -258,7 +258,7 @@ if has_component sport; then
         scp "$cgi" "$TURRIS_HOST:/srv/tommyq/sport/cgi/$name"
         ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/sport/cgi/$name"
     done
-    scp "$SCRIPT_DIR/www/sport/activity.html" "$TURRIS_HOST:/srv/tommyq/sport/activity.html"
+    scp "$PYTHON_SPORT/activity/index.html" "$TURRIS_HOST:/srv/tommyq/sport/activity.html"
 
     # Cron
     ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q generate-sport-maps || (crontab -l 2>/dev/null; echo '0 6 * * * /root/scripts/generate-sport-maps.sh >/dev/null 2>&1') | crontab -"
@@ -269,6 +269,10 @@ if has_component sport; then
     scp "$PYTHON_SPORT/brouter/index.html" "$TURRIS_HOST:/srv/tommyq/brouter/index.html"
     scp "$PYTHON_SPORT/brouter/cgi/bryton-upload.cgi" "$TURRIS_HOST:/srv/tommyq/brouter/cgi/bryton-upload.cgi"
     ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/brouter/cgi/bryton-upload.cgi"
+
+    # Garage (from tommyq-sport/garage/)
+    ssh "$TURRIS_HOST" "mkdir -p /www/tommyq/garage"
+    scp -r "$PYTHON_SPORT/garage/"* "$TURRIS_HOST:/www/tommyq/garage/"
 
     echo "  ✓ Sport service deployed"
     echo ""
