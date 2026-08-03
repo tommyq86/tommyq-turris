@@ -1,14 +1,16 @@
-# tommyq.cz/sport/ - Token-based access control with HTTP Basic auth for admin actions
-# admin token = full access (refresh, delete, rename)
-# public token = view only (shareable links)
-# Admin actions from outside LAN require admin token OR HTTP Basic auth
-$HTTP["host"] == "tommyq.cz" {
-    $HTTP["url"] =~ "^/sport" {
+# sport.tommyq.cz - Sport subdomain (activities, route planner, garage)
+# Token-based access control with HTTP Basic auth for admin actions
+$HTTP["host"] == "sport.tommyq.cz" {
+
+    # --- Activity viewer: token access control ---
+    $HTTP["url"] =~ "^/(index\.html|activity\.html)?$" {
         $HTTP["querystring"] !~ "token=(__ADMIN_TOKEN__|__PUBLIC_TOKEN__)" {
             url.redirect = ( "" => "https://tommyq.cz/" )
         }
     }
-    $HTTP["url"] =~ "^/sport/cgi/(refresh|delete|rename|auth)" {
+
+    # --- Admin CGI: auth for non-LAN ---
+    $HTTP["url"] =~ "^/cgi/(refresh|delete|rename|auth)" {
         $HTTP["querystring"] !~ "token=__ADMIN_TOKEN__" {
             $HTTP["remoteip"] != "192.168.2.0/24" {
                 auth.backend = "pam"
@@ -20,7 +22,28 @@ $HTTP["host"] == "tommyq.cz" {
             }
         }
     }
-    $HTTP["url"] =~ "^/sport/cgi/" {
+
+    # --- CGI scripts ---
+    $HTTP["url"] =~ "^/cgi/" {
+        alias.url = ( "/cgi" => "/srv/tommyq/sport/cgi" )
         cgi.assign = ( ".cgi" => "" )
+    }
+
+    # --- BRouter routing API proxy ---
+    $HTTP["url"] =~ "^/brouter/api/" {
+        proxy.server = ( "" => ( ( "host" => var.nas_ip, "port" => 17777 ) ) )
+        proxy.header = ( "map-urlpath" => ( "/brouter/api/" => "/" ) )
+    }
+
+    # --- BRouter CGI ---
+    $HTTP["url"] =~ "^/brouter/cgi/" {
+        alias.url = ( "/brouter" => "/srv/tommyq/brouter" )
+        cgi.assign = ( ".cgi" => "" )
+    }
+
+    # --- Static content ---
+    $HTTP["url"] !~ "^/(cgi|brouter/api|brouter/cgi)" {
+        alias.url = ( "/brouter" => "/srv/tommyq/brouter", "/garage" => "/www/tommyq/garage", "/" => "/srv/tommyq/sport/" )
+        index-file.names = ( "index.html" )
     }
 }
