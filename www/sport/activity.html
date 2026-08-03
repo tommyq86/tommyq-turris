@@ -131,12 +131,30 @@ fetch('activities/' + id + '.json?token=' + token + '&t=' + Date.now())
   // Chart
   var posMarker = L.circleMarker([0,0], {radius: 8, color: '#fff', weight: 3, fillColor: '#ff6b35', fillOpacity: 1});
   var coordsChart = (d.coords_sampled && d.coords_sampled.length) ? d.coords_sampled : d.coords;
+
+  // Gradient colors for elevation
+  function getGradientColor(grade) {
+    if (grade <= -1) return '#3498db';
+    if (grade <= 3) return '#2ecc71';
+    if (grade <= 6) return '#f1c40f';
+    if (grade <= 10) return '#e67e22';
+    if (grade <= 15) return '#e74c3c';
+    return '#111';
+  }
+  var gradColors = (d.grad || []).map(function(g) { return g != null ? getGradientColor(g) : '#2ecc71'; });
+
   var chart = new Chart(document.getElementById('comboChart'), {
     type: 'line',
     data: {
       labels: d.dist.map(v => v.toFixed(2)),
       datasets: [
-        { label: 'Nadm. výška (m)', data: d.alt, borderColor: '#f39c12', backgroundColor: '#f39c1233', borderWidth: 1.5, pointRadius: 0, fill: true, yAxisID: 'yAlt', spanGaps: true },
+        { label: 'Nadm. výška (m)', data: d.alt, borderWidth: 1.5, pointRadius: 0, fill: true, yAxisID: 'yAlt', spanGaps: true,
+          segment: {
+            borderColor: function(ctx) { return gradColors[ctx.p1DataIndex] || '#2ecc71'; },
+            backgroundColor: function(ctx) { return (gradColors[ctx.p1DataIndex] || '#2ecc71') + '33'; }
+          },
+          borderColor: '#2ecc71', backgroundColor: '#2ecc7133'
+        },
         { label: 'Rychlost (km/h)', data: d.spd, borderColor: '#3498db', borderWidth: 1.5, pointRadius: 0, fill: false, yAxisID: 'ySpd', spanGaps: true },
         { label: 'TF (bpm)', data: d.hr, borderColor: '#e74c3c', borderWidth: 1.5, pointRadius: 0, fill: false, yAxisID: 'yHr', spanGaps: true },
         { label: 'Sklon (%)', data: d.grad, borderColor: 'transparent', borderWidth: 0, pointRadius: 0, fill: false, yAxisID: 'yHr', spanGaps: true }
