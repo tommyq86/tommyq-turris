@@ -223,14 +223,14 @@ if has_component sport; then
     PYTHON_COMMON="$SCRIPT_DIR/../tommyq-sport/common"
 
     # Python scripts
-    ssh "$TURRIS_HOST" "mkdir -p /root/sport /root/common /root/scripts"
-    scp "$PYTHON_SPORT/bryton.py" "$TURRIS_HOST:/root/sport/"
-    scp "$PYTHON_SPORT/import_activity.py" "$TURRIS_HOST:/root/sport/"
-    scp "$PYTHON_COMMON"/*.py "$TURRIS_HOST:/root/common/"
+    ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/activity /srv/tommyq/common"
+    scp "$PYTHON_SPORT/bryton.py" "$TURRIS_HOST:/srv/tommyq/sport/"
+    scp "$PYTHON_SPORT/import_activity.py" "$TURRIS_HOST:/srv/tommyq/sport/"
+    scp "$PYTHON_COMMON"/*.py "$TURRIS_HOST:/srv/tommyq/common/"
 
-    # Sport shell script
-    scp "$PYTHON_SPORT/activity/generate-sport-maps.sh" "$TURRIS_HOST:/root/scripts/"
-    ssh "$TURRIS_HOST" "chmod +x /root/scripts/generate-sport-maps.sh"
+    # Generate sport maps script
+    scp "$PYTHON_SPORT/activity/generate_sport_maps.py" "$TURRIS_HOST:/srv/tommyq/sport/activity/"
+    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/sport/activity/generate_sport_maps.py"
 
     # Install Python modules if missing
     ssh "$TURRIS_HOST" "python3 -c 'import websocket' 2>/dev/null" || {
@@ -259,8 +259,9 @@ if has_component sport; then
     ssh "$TURRIS_HOST" "cd /srv/tommyq/sport/cgi && for f in auth.cgi refresh.cgi delete.cgi rename.cgi overview.cgi; do ln -sf api.cgi \$f; done"
     scp "$PYTHON_SPORT/activity/index.html" "$TURRIS_HOST:/srv/tommyq/sport/activity.html"
 
-    # Cron
-    ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q generate-sport-maps || (crontab -l 2>/dev/null; echo '0 6 * * * /root/scripts/generate-sport-maps.sh >/dev/null 2>&1') | crontab -"
+    # Cron — sync every 5 min, weather daily at 6:00
+    ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q generate_sport_maps.*sync || (crontab -l 2>/dev/null; echo '*/5 * * * * python3 /srv/tommyq/sport/activity/generate_sport_maps.py sync >/dev/null 2>&1') | crontab -"
+    ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q generate_sport_maps.*weather || (crontab -l 2>/dev/null; echo '0 6 * * * python3 /srv/tommyq/sport/activity/generate_sport_maps.py weather >/dev/null 2>&1') | crontab -"
     ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q turris-new-device-alert || (crontab -l 2>/dev/null; echo '*/5 * * * * /root/scripts/turris-new-device-alert.sh >/dev/null 2>&1') | crontab -"
 
     # BRouter route planner (from tommyq-sport/brouter/)
