@@ -269,7 +269,8 @@ if has_component sport; then
     scp "$PYTHON_SPORT/brouter/index.html" "$TURRIS_HOST:/srv/tommyq/brouter/index.html"
     scp "$PYTHON_SPORT/brouter/cgi/bryton-upload.cgi" "$TURRIS_HOST:/srv/tommyq/brouter/cgi/bryton-upload.cgi"
     scp "$PYTHON_SPORT/brouter/cgi/nogos.cgi" "$TURRIS_HOST:/srv/tommyq/brouter/cgi/nogos.cgi"
-    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/brouter/cgi/bryton-upload.cgi /srv/tommyq/brouter/cgi/nogos.cgi"
+    scp "$PYTHON_SPORT/brouter/cgi/routes.cgi" "$TURRIS_HOST:/srv/tommyq/brouter/cgi/routes.cgi"
+    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/brouter/cgi/bryton-upload.cgi /srv/tommyq/brouter/cgi/nogos.cgi /srv/tommyq/brouter/cgi/routes.cgi"
     ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/brouter/data"
 
     # Garage (from tommyq-sport/garage/)
