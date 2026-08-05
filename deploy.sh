@@ -229,7 +229,7 @@ if has_component sport; then
     scp "$PYTHON_COMMON"/*.py "$TURRIS_HOST:/root/common/"
 
     # Sport shell script
-    scp "$SCRIPT_DIR/scripts/generate-sport-maps.sh" "$TURRIS_HOST:/root/scripts/"
+    scp "$PYTHON_SPORT/activity/generate-sport-maps.sh" "$TURRIS_HOST:/root/scripts/"
     ssh "$TURRIS_HOST" "chmod +x /root/scripts/generate-sport-maps.sh"
 
     # Install Python modules if missing
@@ -251,13 +251,12 @@ if has_component sport; then
     [ -f "$HOME/.tommyq/bryton.conf" ] && scp "$HOME/.tommyq/bryton.conf" "$TURRIS_HOST:/root/.tommyq/"
     [ -f "$HOME/.tommyq/sport-token.conf" ] && scp "$HOME/.tommyq/sport-token.conf" "$TURRIS_HOST:/root/.tommyq/"
 
-    # CGI scripts
+    # CGI script (unified Python CGI from tommyq-sport)
     ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/cgi"
-    for cgi in "$SCRIPT_DIR/scripts"/sport-*.cgi; do
-        name=$(basename "$cgi" | sed 's/^sport-//')
-        scp "$cgi" "$TURRIS_HOST:/srv/tommyq/sport/cgi/$name"
-        ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/sport/cgi/$name"
-    done
+    scp "$PYTHON_SPORT/activity/cgi/sport.cgi" "$TURRIS_HOST:/srv/tommyq/sport/cgi/api.cgi"
+    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/sport/cgi/api.cgi"
+    # Backward-compatible symlinks
+    ssh "$TURRIS_HOST" "cd /srv/tommyq/sport/cgi && for f in auth.cgi refresh.cgi delete.cgi rename.cgi overview.cgi; do ln -sf api.cgi \$f; done"
     scp "$PYTHON_SPORT/activity/index.html" "$TURRIS_HOST:/srv/tommyq/sport/activity.html"
 
     # Cron
