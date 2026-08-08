@@ -30,12 +30,6 @@ Configuration and scripts for Turris MOX router.
 │   └── garage/                # Bike garage gallery
 ├── scripts/
 │   ├── generate-sport-maps.sh        # Generate sport activity JSON + index
-│   ├── sport-api.cgi                 # Sport API (list, detail, admin check)
-│   ├── sport-delete.cgi              # Delete activities (admin)
-│   ├── sport-overview.cgi            # Activity overview (copy text)
-│   ├── sport-refresh.cgi             # Trigger activity regeneration
-│   ├── sport-rename.cgi              # Rename activity (admin)
-│   ├── sport-auth.cgi                # HTTP Basic auth endpoint (sport admin mimo LAN)
 │   ├── turris-backup.sh              # Backup Turris to Synology NAS
 │   ├── leo-trigger-turris-backup.sh  # Trigger backup from Leo
 │   ├── turris-mem-monitor.sh         # Memory monitoring (RAM/SWAP)
@@ -107,7 +101,7 @@ Two tokens:
 - **admin** — plný přístup (rename, delete, FIT download, refresh)
 - **public** — view only, pro sdílení aktivit
 
-Admin akce z LAN fungují bez hesla. Z VPN/venku vyžadují HTTP Basic auth (PAM) — endpoint `sport-auth.cgi`. Frontend zobrazuje login tlačítko 🔑.
+Admin akce z LAN fungují bez hesla. Z VPN/venku vyžadují HTTP Basic auth (PAM) — lighttpd vynutí auth pro `sport.cgi?id=auth`. Frontend zobrazuje login tlačítko 🔑.
 
 ### BRouter Route Planner
 
