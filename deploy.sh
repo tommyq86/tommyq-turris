@@ -253,10 +253,8 @@ if has_component sport; then
 
     # CGI script (unified Python CGI from tommyq-sport)
     ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/cgi"
-    scp "$PYTHON_SPORT/activity/cgi/sport.cgi" "$TURRIS_HOST:/srv/tommyq/sport/cgi/api.cgi"
-    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/sport/cgi/api.cgi"
-    # Backward-compatible symlinks
-    ssh "$TURRIS_HOST" "cd /srv/tommyq/sport/cgi && for f in auth.cgi refresh.cgi delete.cgi rename.cgi overview.cgi; do ln -sf api.cgi \$f; done"
+    scp "$PYTHON_SPORT/activity/cgi/sport.cgi" "$TURRIS_HOST:/srv/tommyq/sport/cgi/sport.cgi"
+    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/sport/cgi/sport.cgi"
     scp "$PYTHON_SPORT/activity/index.html" "$TURRIS_HOST:/srv/tommyq/sport/activity.html"
 
     # Cron — sync every 5 min, weather daily at 6:00

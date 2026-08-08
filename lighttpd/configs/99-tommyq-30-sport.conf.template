@@ -9,16 +9,18 @@ $HTTP["host"] == "sport.tommyq.cz" {
         }
     }
 
-    # --- Admin CGI: auth for non-LAN ---
-    $HTTP["url"] =~ "^/cgi/(refresh|delete|rename|auth)" {
-        $HTTP["querystring"] !~ "token=__ADMIN_TOKEN__" {
-            $HTTP["remoteip"] != "192.168.2.0/24" {
-                auth.backend = "pam"
-                auth.require = ( "" => (
-                    "method" => "basic",
-                    "realm" => "Sport Admin",
-                    "require" => "valid-user"
-                ) )
+    # --- Admin CGI: HTTP Basic auth for auth endpoint (non-LAN without admin token) ---
+    $HTTP["url"] =~ "^/cgi/sport\.cgi" {
+        $HTTP["querystring"] =~ "id=auth" {
+            $HTTP["querystring"] !~ "token=__ADMIN_TOKEN__" {
+                $HTTP["remoteip"] != "192.168.2.0/24" {
+                    auth.backend = "pam"
+                    auth.require = ( "" => (
+                        "method" => "basic",
+                        "realm" => "Sport Admin",
+                        "require" => "valid-user"
+                    ) )
+                }
             }
         }
     }
