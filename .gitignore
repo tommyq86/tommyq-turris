@@ -3,3 +3,4 @@
 *~
 lighttpd/configs/99-tommyq-30-sport.conf
 .directory
+.aider*
