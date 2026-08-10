@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy Turris configuration and scripts
 # Usage: deploy.sh [components...] [--host HOST]
-# Components: lighttpd, scripts, dashboard, system, sport, all (default)
+# Components: lighttpd, scripts, dashboard, system, sport, garage, activity, brouter, all (default)
 
 set -euo pipefail
 
@@ -79,7 +79,10 @@ Komponenty:
     scripts     Shell skripty (/root/scripts/)
     dashboard   Webový dashboard (/www/tommyq/)
     system      DNS, kresd, dnsmasq, hosts, CA certifikát
-    sport       Sport service (CGI, Python skripty, activity, brouter, garage)
+    sport       Kompletní sport service (activity + brouter + garage)
+    activity    Pouze Activity (CGI, index.html, generate_sport_maps)
+    brouter     Pouze BRouter (CGI, index.html)
+    garage      Pouze Garage
     all         Vše (výchozí, pokud není zadána žádná komponenta)
 
 Volby:
@@ -88,8 +91,8 @@ Volby:
 
 Příklady:
     $(basename "$0")                    # nasadí vše
-    $(basename "$0") sport              # jen sport service
-    $(basename "$0") lighttpd sport     # lighttpd + sport
+    $(basename "$0") activity           # jen activity
+    $(basename "$0") garage brouter      # garage + brouter
     $(basename "$0") dashboard --host root@192.168.2.1
 EOF
             else
@@ -104,7 +107,10 @@ Components:
     scripts     Shell scripts (/root/scripts/)
     dashboard   Web dashboard (/www/tommyq/)
     system      DNS, kresd, dnsmasq, hosts, CA certificate
-    sport       Sport service (CGI, Python scripts, activity, brouter, garage)
+    sport       Full sport service (activity + brouter + garage)
+    activity    Only Activity (CGI, index.html, generate_sport_maps)
+    brouter     Only BRouter (CGI, index.html)
+    garage      Only Garage
     all         Everything (default if no component specified)
 
 Options:
@@ -113,8 +119,8 @@ Options:
 
 Examples:
     $(basename "$0")                    # deploy everything
-    $(basename "$0") sport              # only sport service
-    $(basename "$0") lighttpd sport     # lighttpd + sport
+    $(basename "$0") activity           # only activity
+    $(basename "$0") garage brouter      # garage + brouter
     $(basename "$0") dashboard --host root@192.168.2.1
 EOF
             fi
@@ -124,7 +130,7 @@ EOF
             TURRIS_HOST="$2"
             shift 2
             ;;
-        lighttpd|scripts|dashboard|system|sport|all)
+        lighttpd|scripts|dashboard|system|sport|activity|brouter|garage|all)
             COMPONENTS+=("$1")
             shift
             ;;
@@ -135,9 +141,20 @@ EOF
     esac
 done
 
+# Expand 'sport' component into individual components if present
+expanded_components=()
+for comp in "${COMPONENTS[@]:-}"; do
+    if [[ "$comp" == "sport" ]]; then
+        expanded_components+=(activity brouter garage)
+    else
+        expanded_components+=("$comp")
+    fi
+done
+COMPONENTS=("${expanded_components[@]:-}")
+
 # Default to all if no components specified
 if [[ ${#COMPONENTS[@]} -eq 0 ]] || [[ " ${COMPONENTS[*]} " == *" all "* ]]; then
-    COMPONENTS=(lighttpd scripts dashboard system sport)
+    COMPONENTS=(lighttpd scripts dashboard system activity brouter garage)
 fi
 
 # Check if component is requested
@@ -270,30 +287,18 @@ uci commit dhcp
     echo ""
 fi
 
-# --- SPORT ---
-deploy_sport() {
-    log "Deploying sport service"
-
+# --- SPORT SHARED BASE ---
+deploy_sport_base() {
     local PYTHON_SPORT="$SCRIPT_DIR/../tommyq-sport"
     local PYTHON_COMMON="$SCRIPT_DIR/../tommyq-sport/common"
 
-    # Directories
-    ensure_dir "/srv/tommyq/sport/activity"
     ensure_dir "/srv/tommyq/common"
-    ensure_dir "/srv/tommyq/sport/cgi"
-    ensure_dir "/srv/tommyq/sport/brouter/cgi"
-    ensure_dir "/srv/tommyq/sport/brouter/data"
-    ensure_dir "/srv/tommyq/sport/garage"
     ensure_dir "/root/.tommyq"
 
-    # Python scripts
+    # Python scripts & common modules
     scp_to "$PYTHON_SPORT/bryton.py" "/srv/tommyq/sport/"
     scp_to "$PYTHON_SPORT/import_activity.py" "/srv/tommyq/sport/"
     scp_dir_to "$PYTHON_COMMON/." "/srv/tommyq/common/"
-
-    # Sport maps generator
-    scp_to "$PYTHON_SPORT/activity/generate_sport_maps.py" "/srv/tommyq/sport/activity/"
-    ssh_exec "chmod +x /srv/tommyq/sport/activity/generate_sport_maps.py"
 
     # Python modules
     install_python_module_if_missing "websocket"
@@ -303,8 +308,23 @@ deploy_sport() {
     # Configs
     [ -f "$HOME/.tommyq/bryton.conf" ] && scp_to "$HOME/.tommyq/bryton.conf" "/root/.tommyq/"
     [ -f "$HOME/.tommyq/sport-token.conf" ] && scp_to "$HOME/.tommyq/sport-token.conf" "/root/.tommyq/"
+}
 
-    # CGI
+# --- ACTIVITY ---
+deploy_activity() {
+    echo "▸ Deploying activity service..."
+    deploy_sport_base
+
+    local PYTHON_SPORT="$SCRIPT_DIR/../tommyq-sport"
+
+    ensure_dir "/srv/tommyq/sport/activity"
+    ensure_dir "/srv/tommyq/sport/cgi"
+
+    # Sport maps generator
+    scp_to "$PYTHON_SPORT/activity/generate_sport_maps.py" "/srv/tommyq/sport/activity/"
+    ssh_exec "chmod +x /srv/tommyq/sport/activity/generate_sport_maps.py"
+
+    # CGI & Frontend
     scp_to "$PYTHON_SPORT/activity/cgi/sport.cgi" "/srv/tommyq/sport/activity/cgi/sport.cgi"
     ssh_exec "chmod +x /srv/tommyq/sport/activity/cgi/sport.cgi"
     scp_to "$PYTHON_SPORT/activity/index.html" "/srv/tommyq/sport/activity/index.html"
@@ -319,22 +339,54 @@ deploy_sport() {
     update_cron "turris-new-device-alert" \
         "*/5 * * * * /root/scripts/turris-new-device-alert.sh >/dev/null 2>&1"
 
-    # BRouter
+    echo "  ✓ Activity service deployed"
+    echo ""
+}
+
+if has_component activity; then
+    deploy_activity
+fi
+
+# --- BROUTER ---
+deploy_brouter() {
+    echo "▸ Deploying brouter service..."
+    deploy_sport_base
+
+    local PYTHON_SPORT="$SCRIPT_DIR/../tommyq-sport"
+
+    ensure_dir "/srv/tommyq/sport/brouter/cgi"
+    ensure_dir "/srv/tommyq/sport/brouter/data"
+
     scp_to "$PYTHON_SPORT/brouter/index.html" "/srv/tommyq/sport/brouter/index.html"
     scp_to "$PYTHON_SPORT/brouter/cgi/bryton-upload.cgi" "/srv/tommyq/sport/brouter/cgi/bryton-upload.cgi"
     scp_to "$PYTHON_SPORT/brouter/cgi/nogos.cgi" "/srv/tommyq/sport/brouter/cgi/nogos.cgi"
     scp_to "$PYTHON_SPORT/brouter/cgi/routes.cgi" "/srv/tommyq/sport/brouter/cgi/routes.cgi"
     ssh_exec "chmod +x /srv/tommyq/sport/brouter/cgi/bryton-upload.cgi /srv/tommyq/sport/brouter/cgi/nogos.cgi /srv/tommyq/sport/brouter/cgi/routes.cgi"
 
-    # Garage
-    scp_dir_to "$PYTHON_SPORT/garage/." "/srv/tommyq/sport/garage/"
-
-    log "Sport service deployed"
+    echo "  ✓ BRouter service deployed"
     echo ""
 }
 
-if has_component sport; then
-    deploy_sport
+if has_component brouter; then
+    deploy_brouter
+fi
+
+# --- GARAGE ---
+deploy_garage() {
+    echo "▸ Deploying garage service..."
+    deploy_sport_base
+
+    local PYTHON_SPORT="$SCRIPT_DIR/../tommyq-sport"
+
+    ensure_dir "/srv/tommyq/sport/garage"
+    scp_dir_to "$PYTHON_SPORT/garage/." "/srv/tommyq/sport/garage/"
+
+    echo "  ✓ Garage service deployed"
+    echo ""
+}
+
+if has_component garage; then
+    deploy_garage
 fi
 
 # --- VERIFY ---
