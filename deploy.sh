@@ -179,7 +179,7 @@ if has_component lighttpd; then
     ssh "$TURRIS_HOST" "cd /etc/lighttpd/conf.d && for f in 50-turris-auth.conf 80-*.conf; do [ -f \$f ] && [ ! -f \$f.disabled ] && mv \$f \$f.disabled; done || true"
 
     # Generate sport config from template with tokens
-    SPORT_TOKEN_FILE="$HOME/.tommyq/sport-token.conf"
+    SPORT_TOKEN_FILE="/srv/tommyq/sport/config/sport-token.conf"
     if [ -f "$SPORT_TOKEN_FILE" ]; then
         ADMIN_TOKEN=$(grep '^TOKEN=' "$SPORT_TOKEN_FILE" | cut -d= -f2)
         PUBLIC_TOKEN=$(grep '^PUBLIC_TOKEN=' "$SPORT_TOKEN_FILE" | cut -d= -f2)
@@ -292,13 +292,13 @@ deploy_sport_base() {
     local PYTHON_SPORT="$SCRIPT_DIR/../tommyq-sport"
     local PYTHON_COMMON="$SCRIPT_DIR/../tommyq-sport/common"
 
-    ensure_dir "/srv/tommyq/common"
-    ensure_dir "/root/.tommyq"
+    ensure_dir "/srv/tommyq/sport/common"
+    ensure_dir "/srv/tommyq/sport/config"
 
     # Python scripts & common modules
     scp_to "$PYTHON_SPORT/bryton.py" "/srv/tommyq/sport/"
     scp_to "$PYTHON_SPORT/import_activity.py" "/srv/tommyq/sport/"
-    scp_dir_to "$PYTHON_COMMON/." "/srv/tommyq/common/"
+    scp_dir_to "$PYTHON_COMMON/." "/srv/tommyq/sport/common/"
 
     # Python modules
     install_python_module_if_missing "websocket"
@@ -307,7 +307,7 @@ deploy_sport_base() {
 
     # Configs
     [ -f "$HOME/.tommyq/bryton.conf" ] && scp_to "$HOME/.tommyq/bryton.conf" "/root/.tommyq/"
-    [ -f "$HOME/.tommyq/sport-token.conf" ] && scp_to "$HOME/.tommyq/sport-token.conf" "/root/.tommyq/"
+    [ -f "$HOME/.tommyq/sport-token.conf" ] && scp_to "$HOME/.tommyq/sport-token.conf" "/srv/tommyq/sport/config/sport-token.conf"
 }
 
 # --- ACTIVITY ---
@@ -318,7 +318,7 @@ deploy_activity() {
     local PYTHON_SPORT="$SCRIPT_DIR/../tommyq-sport"
 
     ensure_dir "/srv/tommyq/sport/activity"
-    ensure_dir "/srv/tommyq/sport/cgi"
+    ensure_dir "/srv/tommyq/sport/activity/cgi"
 
     # Sport maps generator
     scp_to "$PYTHON_SPORT/activity/generate_sport_maps.py" "/srv/tommyq/sport/activity/"
