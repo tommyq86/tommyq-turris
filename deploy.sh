@@ -76,7 +76,7 @@ Použití:
 
 Komponenty:
     lighttpd    Lighttpd moduly, konfigurace a reverse proxy
-    scripts     Shell skripty (/root/scripts/)
+    scripts     Shell skripty (/srv/tommyq/scripts/)
     dashboard   Webový dashboard (/www/tommyq/)
     system      DNS, kresd, dnsmasq, hosts, CA certifikát
     sport       Kompletní sport service (activity + brouter + garage)
@@ -104,7 +104,7 @@ Usage:
 
 Components:
     lighttpd    Lighttpd modules, configs and reverse proxy
-    scripts     Shell scripts (/root/scripts/)
+    scripts     Shell scripts (/srv/tommyq/scripts/)
     dashboard   Web dashboard (/www/tommyq/)
     system      DNS, kresd, dnsmasq, hosts, CA certificate
     sport       Full sport service (activity + brouter + garage)
@@ -202,12 +202,12 @@ fi
 # --- SCRIPTS ---
 if has_component scripts; then
     echo "▸ Deploying scripts..."
-    ssh "$TURRIS_HOST" "mkdir -p /root/scripts"
+    ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/scripts/"
     for script in "$SCRIPT_DIR/scripts"/*.sh; do
         filename=$(basename "$script")
         echo "  $filename"
-        scp "$script" "$TURRIS_HOST:/root/scripts/"
-        ssh "$TURRIS_HOST" "chmod +x /root/scripts/$filename"
+        scp "$script" "$TURRIS_HOST:/srv/tommyq/scripts/"
+        ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/scripts/$filename"
     done
     
     # Memory monitor
@@ -217,7 +217,7 @@ if has_component scripts; then
     ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q memory-monitor || (crontab -l 2>/dev/null; echo '*/5 * * * * /usr/local/bin/memory-monitor.sh') | crontab -"
 
     # Add cron job for kresd-watchdog
-    ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q kresd-watchdog || (crontab -l 2>/dev/null; echo '*/2 * * * * /root/scripts/kresd-watchdog.sh >/dev/null 2>&1') | crontab -"
+    ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q kresd-watchdog || (crontab -l 2>/dev/null; echo '*/2 * * * * /srv/tommyq/scripts/kresd-watchdog.sh >/dev/null 2>&1') | crontab -"
     
     echo "  ✓ Scripts deployed"
     echo ""
@@ -337,7 +337,7 @@ deploy_activity() {
         "0 6 * * * python3 /srv/tommyq/sport/activity/generate_sport_maps.py weather >/dev/null 2>&1"
 
     update_cron "turris-new-device-alert" \
-        "*/5 * * * * /root/scripts/turris-new-device-alert.sh >/dev/null 2>&1"
+        "*/5 * * * * /srv/tommyq/scripts/turris-new-device-alert.sh >/dev/null 2>&1"
 
     echo "  ✓ Activity service deployed"
     echo ""
