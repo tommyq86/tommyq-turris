@@ -1,19 +1,73 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Deploy Turris configuration and scripts
 # Usage: deploy.sh [components...] [--host HOST]
 # Components: lighttpd, scripts, dashboard, system, sport, all (default)
 
-set -e
+set -euo pipefail
 
 TURRIS_HOST="root@turris"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPONENTS=()
 
+# ------------------------------------------------------------
+# Logging & Helpers
+# ------------------------------------------------------------
+log() {
+    echo "[$(date +'%F %T')] $*"
+}
+
+ssh_exec() {
+    ssh "$TURRIS_HOST" "$@"
+}
+
+scp_to() {
+    scp "$1" "$TURRIS_HOST:$2"
+}
+
+scp_dir_to() {
+    scp -r "$1" "$TURRIS_HOST:$2"
+}
+
+ensure_dir() {
+    ssh_exec "mkdir -p $1"
+}
+
+install_python_module_if_missing() {
+    local module="$1"
+    ssh_exec "python3 -c 'import $module' 2>/dev/null" || {
+        local path
+        path=$(python3 -c "import $module, os; print(os.path.dirname($module.__file__))")
+        scp_dir_to "$path" "/usr/lib/python3.11/site-packages/"
+        log "Installed Python module: $module"
+    }
+}
+
+update_cron() {
+    local pattern="$1"
+    local entry="$2"
+
+    local tmp
+    tmp=$(mktemp)
+
+    ssh_exec "crontab -l 2>/dev/null" > "$tmp" || true
+
+    if ! grep -q "$pattern" "$tmp"; then
+        echo "$entry" >> "$tmp"
+        scp_to "$tmp" "/tmp/newcron"
+        ssh_exec "crontab /tmp/newcron"
+        log "Cron updated: $entry"
+    fi
+
+    rm -f "$tmp"
+}
+
+# ------------------------------------------------------------
 # Parse arguments
+# ------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help)
-            if [[ "$LANG" =~ ^cs ]]; then
+            if [[ "${LANG:-}" =~ ^cs ]]; then
                 cat << EOF
 $(basename "$0") - Nasadí konfiguraci a skripty na Turris router
 
@@ -88,7 +142,7 @@ fi
 
 # Check if component is requested
 has_component() {
-    [[ " ${COMPONENTS[*]} " == *" $1 "* ]]
+    [[ " ${COMPONENTS[*]:-} " == *" $1 "* ]]
 }
 
 echo "=== Turris Deployment ==="
@@ -191,7 +245,7 @@ for i in \$(seq 0 20); do
   uci delete dhcp.@domain[0] 2>/dev/null || break
 done
 uci commit dhcp
-" 2>/dev/null
+" 2>/dev/null || true
     echo "  ✓ UCI domains cleaned"
 
     # DNS rebinding exception for plex.direct
@@ -217,71 +271,70 @@ uci commit dhcp
 fi
 
 # --- SPORT ---
-if has_component sport; then
-    echo "▸ Deploying sport service..."
-    PYTHON_SPORT="$SCRIPT_DIR/../tommyq-sport"
-    PYTHON_COMMON="$SCRIPT_DIR/../tommyq-sport/common"
+deploy_sport() {
+    log "Deploying sport service"
+
+    local PYTHON_SPORT="$SCRIPT_DIR/../tommyq-sport"
+    local PYTHON_COMMON="$SCRIPT_DIR/../tommyq-sport/common"
+
+    # Directories
+    ensure_dir "/srv/tommyq/sport/activity"
+    ensure_dir "/srv/tommyq/common"
+    ensure_dir "/srv/tommyq/sport/cgi"
+    ensure_dir "/srv/tommyq/sport/brouter/cgi"
+    ensure_dir "/srv/tommyq/sport/brouter/data"
+    ensure_dir "/srv/tommyq/sport/garage"
+    ensure_dir "/root/.tommyq"
 
     # Python scripts
-    ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/activity /srv/tommyq/common"
-    scp "$PYTHON_SPORT/bryton.py" "$TURRIS_HOST:/srv/tommyq/sport/"
-    scp "$PYTHON_SPORT/import_activity.py" "$TURRIS_HOST:/srv/tommyq/sport/"
-    scp "$PYTHON_COMMON"/*.py "$TURRIS_HOST:/srv/tommyq/common/"
+    scp_to "$PYTHON_SPORT/bryton.py" "/srv/tommyq/sport/"
+    scp_to "$PYTHON_SPORT/import_activity.py" "/srv/tommyq/sport/"
+    scp_dir_to "$PYTHON_COMMON/." "/srv/tommyq/common/"
 
-    # Generate sport maps script
-    scp "$PYTHON_SPORT/activity/generate_sport_maps.py" "$TURRIS_HOST:/srv/tommyq/sport/activity/"
-    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/sport/activity/generate_sport_maps.py"
+    # Sport maps generator
+    scp_to "$PYTHON_SPORT/activity/generate_sport_maps.py" "/srv/tommyq/sport/activity/"
+    ssh_exec "chmod +x /srv/tommyq/sport/activity/generate_sport_maps.py"
 
-    # Install Python modules if missing
-    ssh "$TURRIS_HOST" "python3 -c 'import websocket' 2>/dev/null" || {
-        WSPATH=$(python3 -c "import websocket, os; print(os.path.dirname(websocket.__file__))")
-        scp -r "$WSPATH" "$TURRIS_HOST:/usr/lib/python3.11/site-packages/"
-    }
-    ssh "$TURRIS_HOST" "python3 -c 'import garmin_fit_sdk' 2>/dev/null" || {
-        FITPATH=$(python3 -c "import garmin_fit_sdk, os; print(os.path.dirname(garmin_fit_sdk.__file__))")
-        scp -r "$FITPATH" "$TURRIS_HOST:/usr/lib/python3.11/site-packages/"
-    }
-    ssh "$TURRIS_HOST" "python3 -c 'import fitparse' 2>/dev/null" || {
-        FPPATH=$(python3 -c "import fitparse, os; print(os.path.dirname(fitparse.__file__))")
-        scp -r "$FPPATH" "$TURRIS_HOST:/usr/lib/python3.11/site-packages/"
-    }
+    # Python modules
+    install_python_module_if_missing "websocket"
+    install_python_module_if_missing "garmin_fit_sdk"
+    install_python_module_if_missing "fitparse"
 
     # Configs
-    ssh "$TURRIS_HOST" "mkdir -p /root/.tommyq"
-    [ -f "$HOME/.tommyq/bryton.conf" ] && scp "$HOME/.tommyq/bryton.conf" "$TURRIS_HOST:/root/.tommyq/"
-    [ -f "$HOME/.tommyq/sport-token.conf" ] && scp "$HOME/.tommyq/sport-token.conf" "$TURRIS_HOST:/root/.tommyq/"
+    [ -f "$HOME/.tommyq/bryton.conf" ] && scp_to "$HOME/.tommyq/bryton.conf" "/root/.tommyq/"
+    [ -f "$HOME/.tommyq/sport-token.conf" ] && scp_to "$HOME/.tommyq/sport-token.conf" "/root/.tommyq/"
 
-    # CGI script (unified Python CGI from tommyq-sport)
-    ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/cgi"
-    scp "$PYTHON_SPORT/activity/cgi/sport.cgi" "$TURRIS_HOST:/srv/tommyq/sport/activity/cgi/sport.cgi"
-    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/activity/sport/cgi/sport.cgi"
-    scp "$PYTHON_SPORT/activity/index.html" "$TURRIS_HOST:/srv/tommyq/sport/activity/index.html"
+    # CGI
+    scp_to "$PYTHON_SPORT/activity/cgi/sport.cgi" "/srv/tommyq/sport/activity/cgi/sport.cgi"
+    ssh_exec "chmod +x /srv/tommyq/sport/activity/cgi/sport.cgi"
+    scp_to "$PYTHON_SPORT/activity/index.html" "/srv/tommyq/sport/activity/index.html"
 
-    # Cron — sync every 5 min, weather daily at 6:00
-    CRON_FILE=$(mktemp)
-    ssh "$TURRIS_HOST" "crontab -l 2>/dev/null" > "$CRON_FILE"
-    
-    grep -q generate_sport_maps.*sync "$CRON_FILE" || \
-        echo "*/5 * * * * python3 /srv/tommyq/sport/activity/generate_sport_maps.py sync >/dev/null 2>&1" >> "$CRON_FILE"
-    
-    scp "$CRON_FILE" "$TURRIS_HOST:/tmp/newcron"
-    ssh "$TURRIS_HOST" "crontab /tmp/newcron"
+    # Cron
+    update_cron "generate_sport_maps.*sync" \
+        "*/5 * * * * python3 /srv/tommyq/sport/activity/generate_sport_maps.py sync >/dev/null 2>&1"
 
-    # BRouter route planner (from tommyq-sport/brouter/)
-    ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/brouter/cgi"
-    scp "$PYTHON_SPORT/brouter/index.html" "$TURRIS_HOST:/srv/tommyq/sport/brouter/index.html"
-    scp "$PYTHON_SPORT/brouter/cgi/bryton-upload.cgi" "$TURRIS_HOST:/srv/tommyq/sport/brouter/cgi/bryton-upload.cgi"
-    scp "$PYTHON_SPORT/brouter/cgi/nogos.cgi" "$TURRIS_HOST:/srv/tommyq/sport/brouter/cgi/nogos.cgi"
-    scp "$PYTHON_SPORT/brouter/cgi/routes.cgi" "$TURRIS_HOST:/srv/tommyq/sport/brouter/cgi/routes.cgi"
-    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/sport/brouter/cgi/bryton-upload.cgi /srv/tommyq/sport/brouter/cgi/nogos.cgi /srv/tommyq/sport/brouter/cgi/routes.cgi"
-    ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/brouter/data"
+    update_cron "generate_sport_maps.*weather" \
+        "0 6 * * * python3 /srv/tommyq/sport/activity/generate_sport_maps.py weather >/dev/null 2>&1"
 
-    # Garage (from tommyq-sport/garage/)
-    ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/garage"
-    scp -r "$PYTHON_SPORT/garage/"* "$TURRIS_HOST:/srv/tommyq/sport/garage/"
+    update_cron "turris-new-device-alert" \
+        "*/5 * * * * /root/scripts/turris-new-device-alert.sh >/dev/null 2>&1"
 
-    echo "  ✓ Sport service deployed"
+    # BRouter
+    scp_to "$PYTHON_SPORT/brouter/index.html" "/srv/tommyq/sport/brouter/index.html"
+    scp_to "$PYTHON_SPORT/brouter/cgi/bryton-upload.cgi" "/srv/tommyq/sport/brouter/cgi/bryton-upload.cgi"
+    scp_to "$PYTHON_SPORT/brouter/cgi/nogos.cgi" "/srv/tommyq/sport/brouter/cgi/nogos.cgi"
+    scp_to "$PYTHON_SPORT/brouter/cgi/routes.cgi" "/srv/tommyq/sport/brouter/cgi/routes.cgi"
+    ssh_exec "chmod +x /srv/tommyq/sport/brouter/cgi/bryton-upload.cgi /srv/tommyq/sport/brouter/cgi/nogos.cgi /srv/tommyq/sport/brouter/cgi/routes.cgi"
+
+    # Garage
+    scp_dir_to "$PYTHON_SPORT/garage/." "/srv/tommyq/sport/garage/"
+
+    log "Sport service deployed"
     echo ""
+}
+
+if has_component sport; then
+    deploy_sport
 fi
 
 # --- VERIFY ---
