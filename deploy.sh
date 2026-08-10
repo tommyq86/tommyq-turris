@@ -253,9 +253,9 @@ if has_component sport; then
 
     # CGI script (unified Python CGI from tommyq-sport)
     ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/cgi"
-    scp "$PYTHON_SPORT/activity/cgi/sport.cgi" "$TURRIS_HOST:/srv/tommyq/sport/cgi/sport.cgi"
-    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/sport/cgi/sport.cgi"
-    scp "$PYTHON_SPORT/activity/index.html" "$TURRIS_HOST:/srv/tommyq/sport/activity.html"
+    scp "$PYTHON_SPORT/activity/cgi/sport.cgi" "$TURRIS_HOST:/srv/tommyq/sport/activity/cgi/sport.cgi"
+    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/activity/sport/cgi/sport.cgi"
+    scp "$PYTHON_SPORT/activity/index.html" "$TURRIS_HOST:/srv/tommyq/sport/activity/index.html"
 
     # Cron — sync every 5 min, weather daily at 6:00
     ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q generate_sport_maps.*sync || (crontab -l 2>/dev/null; echo '*/5 * * * * python3 /srv/tommyq/sport/activity/generate_sport_maps.py sync >/dev/null 2>&1') | crontab -"
