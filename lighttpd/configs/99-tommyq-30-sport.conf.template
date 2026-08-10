@@ -2,15 +2,22 @@
 # Token-based access control with HTTP Basic auth for admin actions
 $HTTP["host"] == "sport.tommyq.cz" {
 
-    # --- Activity viewer: token access control ---
+    # --- Redirect root / to /activity/ ---
     $HTTP["url"] == "/" {
-        $HTTP["querystring"] !~ "token=(__ADMIN_TOKEN__|__PUBLIC_TOKEN__)" {
-            url.redirect = ( "/" => "https://tommyq.cz/" )
+        url.redirect = ( "^/$" => "https://sport.tommyq.cz/activity/" )
+    }
+
+    # --- Activity viewer: token access control (nevyžaduje se pro LAN) ---
+    $HTTP["url"] =~ "^/activity" {
+        $HTTP["remoteip"] != "192.168.2.0/24" {
+            $HTTP["querystring"] !~ "token=(__ADMIN_TOKEN__|__PUBLIC_TOKEN__)" {
+                url.redirect = ( ".*" => "https://tommyq.cz/" )
+            }
         }
     }
 
     # --- Admin actions (refresh/delete/rename/auth) ---
-    $HTTP["url"] =~ "^/cgi/sport.cgi" {
+    $HTTP["url"] =~ "^/activity/cgi/sport.cgi" {
         $HTTP["querystring"] =~ "(^|&)id=(refresh|delete|rename|auth)($|&)" {
             $HTTP["querystring"] !~ "token=__ADMIN_TOKEN__" {
                 $HTTP["remoteip"] != "192.168.2.0/24" {
@@ -25,9 +32,9 @@ $HTTP["host"] == "sport.tommyq.cz" {
         }
     }
 
-    # --- CGI scripts ---
-    $HTTP["url"] =~ "^/cgi/" {
-        alias.url = ( "/cgi" => "/srv/tommyq/sport/cgi" )
+    # --- Activity CGI script ---
+    $HTTP["url"] =~ "^/activity/cgi/" {
+        alias.url = ( "/activity/cgi" => "/srv/tommyq/sport/activity/cgi" )
         cgi.assign = ( ".cgi" => "" )
     }
 
@@ -39,20 +46,20 @@ $HTTP["host"] == "sport.tommyq.cz" {
 
     # --- BRouter CGI ---
     $HTTP["url"] =~ "^/brouter/cgi/" {
-        alias.url = ( "/brouter" => "/srv/tommyq/brouter" )
+        alias.url = ( "/brouter/cgi" => "/srv/tommyq/sport/brouter/cgi" )
         cgi.assign = ( ".cgi" => "" )
     }
 
     # --- Static content ---
-    $HTTP["url"] !~ "^/(cgi|brouter/api|brouter/cgi)" {
-        alias.url = ( "/brouter" => "/srv/tommyq/brouter",
-                      "/garage" => "/www/tommyq/garage",
-                      "/" => "/srv/tommyq/sport/" )
+    $HTTP["url"] !~ "^/(activity/cgi|brouter/api|brouter/cgi)" {
+        alias.url = ( "/activity" => "/srv/tommyq/sport/activity",
+                      "/brouter"  => "/srv/tommyq/sport/brouter",
+                      "/garage"   => "/srv/tommyq/sport/garage" )
         index-file.names = ( "index.html" )
     }
 
     # --- AUDIT: All sport.cgi calls ---
-    $HTTP["url"] =~ "^/cgi/sport.cgi" {
+    $HTTP["url"] =~ "^/activity/cgi/sport.cgi" {
         setenv.add-environment = ( "SPORT_AUDIT" => "1" )
     }
 }
