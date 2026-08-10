@@ -120,7 +120,7 @@ if has_component lighttpd; then
     fi
 
     cd "$SCRIPT_DIR/lighttpd"
-    ./deploy.sh "$TURRIS_HOST"
+    ./deploy-lighttpd.sh "$TURRIS_HOST"
 
     # Restart lighttpd
     ssh "$TURRIS_HOST" "/etc/init.d/lighttpd enable && /etc/init.d/lighttpd restart"

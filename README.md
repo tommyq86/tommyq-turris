@@ -22,7 +22,7 @@ Configuration and scripts for Turris MOX router.
 │   │   ├── 99-tommyq-20-tools.conf         # Tools & Downloading (DSM, qBit, etc.)
 │   │   ├── 99-tommyq-30-sport.conf.template # Sport service (token auth)
 │   │   └── 99-tommyq-30-sport.conf         # Generated from template by deploy.sh
-│   └── deploy.sh              # Lighttpd-only deployment
+│   └── deploy-lighttpd.sh              # Lighttpd-only deployment
 ├── www/
 │   ├── index.html             # Services dashboard
 │   ├── sport/
