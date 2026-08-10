@@ -272,8 +272,8 @@ if has_component sport; then
     ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/brouter/data"
 
     # Garage (from tommyq-sport/garage/)
-    ssh "$TURRIS_HOST" "mkdir -p /www/tommyq/garage"
-    scp -r "$PYTHON_SPORT/garage/"* "$TURRIS_HOST:/www/tommyq/garage/"
+    ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/garage"
+    scp -r "$PYTHON_SPORT/garage/"* "$TURRIS_HOST:/srv/tommyq/sport/garage/"
 
     echo "  ✓ Sport service deployed"
     echo ""
