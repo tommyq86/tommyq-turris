@@ -258,9 +258,14 @@ if has_component sport; then
     scp "$PYTHON_SPORT/activity/index.html" "$TURRIS_HOST:/srv/tommyq/sport/activity/index.html"
 
     # Cron — sync every 5 min, weather daily at 6:00
-    ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q generate_sport_maps.*sync || (crontab -l 2>/dev/null; echo '*/5 * * * * python3 /srv/tommyq/sport/activity/generate_sport_maps.py sync >/dev/null 2>&1') | crontab -"
-    ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q generate_sport_maps.*weather || (crontab -l 2>/dev/null; echo '0 6 * * * python3 /srv/tommyq/sport/activity/generate_sport_maps.py weather >/dev/null 2>&1') | crontab -"
-    ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q turris-new-device-alert || (crontab -l 2>/dev/null; echo '*/5 * * * * /root/scripts/turris-new-device-alert.sh >/dev/null 2>&1') | crontab -"
+    CRON_FILE=$(mktemp)
+    ssh "$TURRIS_HOST" "crontab -l 2>/dev/null" > "$CRON_FILE"
+    
+    grep -q generate_sport_maps.*sync "$CRON_FILE" || \
+        echo "*/5 * * * * python3 /srv/tommyq/sport/activity/generate_sport_maps.py sync >/dev/null 2>&1" >> "$CRON_FILE"
+    
+    scp "$CRON_FILE" "$TURRIS_HOST:/tmp/newcron"
+    ssh "$TURRIS_HOST" "crontab /tmp/newcron"
 
     # BRouter route planner (from tommyq-sport/brouter/)
     ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/brouter/cgi"
