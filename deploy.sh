@@ -263,13 +263,13 @@ if has_component sport; then
     ssh "$TURRIS_HOST" "crontab -l 2>/dev/null | grep -q turris-new-device-alert || (crontab -l 2>/dev/null; echo '*/5 * * * * /root/scripts/turris-new-device-alert.sh >/dev/null 2>&1') | crontab -"
 
     # BRouter route planner (from tommyq-sport/brouter/)
-    ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/brouter/cgi"
-    scp "$PYTHON_SPORT/brouter/index.html" "$TURRIS_HOST:/srv/tommyq/brouter/index.html"
-    scp "$PYTHON_SPORT/brouter/cgi/bryton-upload.cgi" "$TURRIS_HOST:/srv/tommyq/brouter/cgi/bryton-upload.cgi"
-    scp "$PYTHON_SPORT/brouter/cgi/nogos.cgi" "$TURRIS_HOST:/srv/tommyq/brouter/cgi/nogos.cgi"
-    scp "$PYTHON_SPORT/brouter/cgi/routes.cgi" "$TURRIS_HOST:/srv/tommyq/brouter/cgi/routes.cgi"
-    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/brouter/cgi/bryton-upload.cgi /srv/tommyq/brouter/cgi/nogos.cgi /srv/tommyq/brouter/cgi/routes.cgi"
-    ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/brouter/data"
+    ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/brouter/cgi"
+    scp "$PYTHON_SPORT/brouter/index.html" "$TURRIS_HOST:/srv/tommyq/sport/brouter/index.html"
+    scp "$PYTHON_SPORT/brouter/cgi/bryton-upload.cgi" "$TURRIS_HOST:/srv/tommyq/sport/brouter/cgi/bryton-upload.cgi"
+    scp "$PYTHON_SPORT/brouter/cgi/nogos.cgi" "$TURRIS_HOST:/srv/tommyq/sport/brouter/cgi/nogos.cgi"
+    scp "$PYTHON_SPORT/brouter/cgi/routes.cgi" "$TURRIS_HOST:/srv/tommyq/sport/brouter/cgi/routes.cgi"
+    ssh "$TURRIS_HOST" "chmod +x /srv/tommyq/sport/brouter/cgi/bryton-upload.cgi /srv/tommyq/sport/brouter/cgi/nogos.cgi /srv/tommyq/sport/brouter/cgi/routes.cgi"
+    ssh "$TURRIS_HOST" "mkdir -p /srv/tommyq/sport/brouter/data"
 
     # Garage (from tommyq-sport/garage/)
     ssh "$TURRIS_HOST" "mkdir -p /www/tommyq/garage"
