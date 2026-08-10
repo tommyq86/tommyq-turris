@@ -3,15 +3,15 @@
 $HTTP["host"] == "sport.tommyq.cz" {
 
     # --- Activity viewer: token access control ---
-    $HTTP["url"] =~ "^/(index\.html|activity\.html)?$" {
+    $HTTP["url"] == "/" {
         $HTTP["querystring"] !~ "token=(__ADMIN_TOKEN__|__PUBLIC_TOKEN__)" {
-            url.redirect = ( "" => "https://tommyq.cz/" )
+            url.redirect = ( "/" => "https://tommyq.cz/" )
         }
     }
 
-    # --- Admin CGI: HTTP Basic auth for auth endpoint (non-LAN without admin token) ---
-    $HTTP["url"] =~ "^/cgi/sport\.cgi" {
-        $HTTP["querystring"] =~ "id=auth" {
+    # --- Admin actions (refresh/delete/rename/auth) ---
+    $HTTP["url"] =~ "^/cgi/sport.cgi" {
+        $HTTP["querystring"] =~ "(^|&)id=(refresh|delete|rename|auth)($|&)" {
             $HTTP["querystring"] !~ "token=__ADMIN_TOKEN__" {
                 $HTTP["remoteip"] != "192.168.2.0/24" {
                     auth.backend = "pam"
@@ -45,7 +45,14 @@ $HTTP["host"] == "sport.tommyq.cz" {
 
     # --- Static content ---
     $HTTP["url"] !~ "^/(cgi|brouter/api|brouter/cgi)" {
-        alias.url = ( "/brouter" => "/srv/tommyq/brouter", "/garage" => "/www/tommyq/garage", "/" => "/srv/tommyq/sport/" )
+        alias.url = ( "/brouter" => "/srv/tommyq/brouter",
+                      "/garage" => "/www/tommyq/garage",
+                      "/" => "/srv/tommyq/sport/" )
         index-file.names = ( "index.html" )
+    }
+
+    # --- AUDIT: All sport.cgi calls ---
+    $HTTP["url"] =~ "^/cgi/sport.cgi" {
+        setenv.add-environment = ( "SPORT_AUDIT" => "1" )
     }
 }
