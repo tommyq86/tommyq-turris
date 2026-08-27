@@ -327,7 +327,7 @@ deploy_activity() {
     # CGI & Frontend
     scp_to "$PYTHON_SPORT/activity/cgi/sport.cgi" "/srv/tommyq/sport/activity/cgi/sport.cgi"
     ssh_exec "chmod +x /srv/tommyq/sport/activity/cgi/sport.cgi"
-    scp_to "$PYTHON_SPORT/activity/index.html" "/srv/tommyq/sport/activity/index.html"
+    scp_to "$PYTHON_SPORT/activity/activity.html" "/srv/tommyq/sport/activity/activity.html"
 
     # Cron
     update_cron "generate_sport_maps.*sync" \
