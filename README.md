@@ -17,28 +17,25 @@ Configuration and scripts for Turris MOX router.
 ├── lighttpd/
 │   ├── configs/
 │   │   ├── 49-tommyq-no-auth.conf          # Disable Turris auth for tommyq.cz
-│   │   ├── 99-tommyq-00-base.conf          # Base domain, HTTP redirect, BRouter API proxy, CGI
+│   │   ├── 99-tommyq-00-base.conf          # Base domain, HTTP redirect, SmartHome proxy, sport redirects
 │   │   ├── 99-tommyq-10-media.conf         # Media Services (Plex, Seerr, *arr, Calibre-Web, Audiobookshelf)
 │   │   ├── 99-tommyq-20-tools.conf         # Tools & Downloading (DSM, qBit, etc.)
 │   │   ├── 99-tommyq-30-sport.conf.template # Sport service (token auth)
 │   │   └── 99-tommyq-30-sport.conf         # Generated from template by deploy.sh
 │   └── deploy-lighttpd.sh              # Lighttpd-only deployment
-├── www/
-│   ├── index.html             # Services dashboard
-│   ├── sport/
-│   │   └── activity.html      # Activity viewer template (loads JSON data)
-│   └── garage/                # Bike garage gallery
-├── scripts/
-│   ├── generate-sport-maps.sh        # Generate sport activity JSON + index
+├── www/                       # Services dashboard (deployed to /www/tommyq/)
+│   ├── index.html             # Dashboard page (service icons via dashboard-icons + Iconify MDI CDN)
+│   ├── logo.png               # Dashboard header logo
+│   └── carbon.png             # Dashboard background
+├── scripts/                   # Deployed to /srv/tommyq/scripts/
 │   ├── turris-backup.sh              # Backup Turris to Synology NAS
 │   ├── leo-trigger-turris-backup.sh  # Trigger backup from Leo
 │   ├── turris-mem-monitor.sh         # Memory monitoring (RAM/SWAP)
 │   ├── turris-new-device-alert.sh    # New device notification
 │   ├── pre-update-backup.sh          # Pre-TurrisOS update backup
 │   ├── post-update-restore.sh        # Post-TurrisOS update restore
-│   ├── restore-assistant.sh          # Restore assistant service
-│   ├── safe-reboot.sh               # Safe reboot (clear updater flags)
-│   └── kresd-watchdog.sh            # Monitoring and restart kresd při výpadku
+│   ├── safe-reboot.sh                # Safe reboot (clear updater flags)
+│   └── kresd-watchdog.sh             # Monitoring and restart kresd on failure
 ├── system/
 │   ├── kresd-custom.conf      # Knot Resolver - local domain overrides
 │   ├── dnsmasq-local-domains.conf  # Dnsmasq local domain resolution
@@ -48,6 +45,10 @@ Configuration and scripts for Turris MOX router.
 └── docs/
     └── setup.md               # Setup documentation
 ```
+
+**Note:** The sport service frontend and Python code (activity, brouter, garage) live in the
+[tommyq-sport](https://github.com/tommyq86/tommyq-sport) repository and are deployed from there
+to `/srv/tommyq/sport/` by `deploy.sh`.
 
 **Note:** DNS configuration is managed via Knot Resolver (`/etc/kresd/custom.conf`). Local domains (`*.tommyq.cz`) resolve to `192.168.2.1`.
 
@@ -60,16 +61,21 @@ Configuration and scripts for Turris MOX router.
 ```
 
 Components:
-- `lighttpd` — modules, configs, reverse proxy (restarts lighttpd)
-- `scripts` — shell scripts to `/root/scripts/`
+- `lighttpd` — modules (auto-installed via opkg), configs, reverse proxy (restarts lighttpd)
+- `scripts` — shell scripts to `/srv/tommyq/scripts/` (+ memory monitor, kresd-watchdog cron)
 - `dashboard` — web dashboard (`/www/tommyq/`)
 - `system` — DNS, kresd, dnsmasq, hosts, CA cert, kresd init script fix (restarts DNS services)
-- `sport` — CGI, Python scripts, activity.html, cron jobs
+- `sport` — full sport service; expands to `activity brouter garage`
+- `activity` — Activity only (CGI, activity.html, generate_sport_maps, cron jobs)
+- `brouter` — BRouter only (CGI, index.html)
+- `garage` — Garage only
 
 Examples:
 ```bash
-./deploy.sh sport              # deploy only sport service
-./deploy.sh lighttpd sport     # lighttpd + sport
+./deploy.sh sport              # deploy full sport service (activity + brouter + garage)
+./deploy.sh activity           # deploy only activity
+./deploy.sh garage brouter     # garage + brouter
+./deploy.sh lighttpd sport     # lighttpd + full sport
 ./deploy.sh system --host root@192.168.2.1
 ```
 
@@ -88,12 +94,13 @@ cd lighttpd
 
 ## Sport Service
 
-Token-authenticated activity viewer at `/sport/`. Architecture:
+Token-authenticated activity viewer at `sport.tommyq.cz/activity/`. Architecture:
 
-- **Template:** `www/sport/activity.html` — single page that loads activity data from JSON
-- **Data:** `/srv/tommyq/sport/activities/{id}.json` — coords, altitude, speed, HR, gradient
-- **Source:** `/srv/tommyq/sport/activities/{id}.html` — generated from Bryton API (data source for JSON)
-- **FIT files:** `/srv/tommyq/sport/activities/{id}.fit` — downloadable (admin only)
+- **Frontend:** `tommyq-sport/activity/activity.html` → `/srv/tommyq/sport/activity/activity.html`
+- **CGI:** `tommyq-sport/activity/cgi/sport.cgi` — unified endpoint (API, refresh, auth, CRUD)
+- **Generator:** `tommyq-sport/activity/generate_sport_maps.py` — builds JSON data, weather, index
+- **Data:** `/srv/tommyq/sport/activity/data/{id}.json` — coords, altitude, speed, HR, gradient
+- **FIT files:** `/srv/tommyq/sport/activity/data/{id}.fit` — downloadable (admin only)
 
 ### Access Control
 
@@ -111,9 +118,9 @@ Features: map with route, charts (altitude/speed/HR/gradient), GPX export (route
 
 Regeneration:
 ```bash
-ssh turris '/root/scripts/generate-sport-maps.sh'              # full (fetch + generate)
-ssh turris '/root/scripts/generate-sport-maps.sh list-only'    # regenerate index only
-ssh turris '/root/scripts/generate-sport-maps.sh <ID>'         # regenerate specific activity (weather, overview, zones)
+ssh turris 'python3 /srv/tommyq/sport/activity/generate_sport_maps.py'            # full (fetch + generate)
+ssh turris 'python3 /srv/tommyq/sport/activity/generate_sport_maps.py list-only'  # regenerate index only
+ssh turris 'python3 /srv/tommyq/sport/activity/generate_sport_maps.py <ID>'       # regenerate specific activity (weather, overview, zones)
 ```
 
 ### Merged activities
@@ -146,11 +153,14 @@ Reverse proxy routes requests to Docker containers running on leo (Synology NAS)
 All services are available via HTTPS with Cloudflare Origin CA certificate:
 
 - `https://tommyq.cz` - Services dashboard
-- `https://tommyq.cz/sport/` - Sport activities (token required)
-- `https://tommyq.cz/brouter` - BRouter gravel route planner (routing API proxy na leo:17777)
+- `https://sport.tommyq.cz/activity/` - Sport activities (token required)
+- `https://sport.tommyq.cz/brouter/` - BRouter gravel route planner (routing API proxy na leo:17777)
+- `https://sport.tommyq.cz/garage/` - Bike garage
 - `https://portainer.tommyq.cz` - Docker management
+- `https://dozzle.tommyq.cz` - Docker logs viewer
 - `https://radarr.tommyq.cz` - Movies
 - `https://sonarr.tommyq.cz` - TV Shows
+- `https://lidarr.tommyq.cz` - Music
 - `https://seerr.tommyq.cz` - Media requests
 - `https://prowlarr.tommyq.cz` - Indexer management
 - `https://calibre.tommyq.cz` - Calibre-Web (e-knihy, port 8083)
@@ -158,6 +168,7 @@ All services are available via HTTPS with Cloudflare Origin CA certificate:
 - `https://filezilla.tommyq.cz` - FTP client (KasmVNC)
 - `https://jdownloader.tommyq.cz` - Download manager
 - `https://qbittorrent.tommyq.cz` - Torrent client
+- `https://download.tommyq.cz` - Synology Download Station
 - `https://plex.tommyq.cz` - Media server
 - `https://dsm.tommyq.cz` - Synology DSM
 
@@ -182,12 +193,12 @@ Install-Certificate  # from tommyq-pwsh
 
 **BEFORE update:**
 ```bash
-ssh turris '/root/scripts/pre-update-backup.sh'
+ssh turris '/srv/tommyq/scripts/pre-update-backup.sh'
 ```
 
 **AFTER update:**
 ```bash
-ssh turris '/root/scripts/post-update-restore.sh'
+ssh turris '/srv/tommyq/scripts/post-update-restore.sh'
 # If configuration is missing:
 cd ~/Systém/tommyq-turris && ./deploy.sh
 ```
@@ -196,7 +207,7 @@ cd ~/Systém/tommyq-turris && ./deploy.sh
 
 ```bash
 # On Turris
-/root/scripts/turris-backup.sh
+/srv/tommyq/scripts/turris-backup.sh
 
 # Trigger from Leo (cron)
 ~/Systém/tommyq-turris/scripts/leo-trigger-turris-backup.sh
@@ -205,13 +216,13 @@ cd ~/Systém/tommyq-turris && ./deploy.sh
 ### Memory Monitoring
 
 ```bash
-ssh turris '/root/scripts/turris-mem-monitor.sh'
+ssh turris '/srv/tommyq/scripts/turris-mem-monitor.sh'
 ```
 
 ### Safe Reboot After Update
 
 ```bash
-ssh turris '/root/scripts/safe-reboot.sh'
+ssh turris '/srv/tommyq/scripts/safe-reboot.sh'
 ```
 
 This script clears updater flags before reboot to prevent the updater from reinstalling updates.
