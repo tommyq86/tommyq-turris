@@ -19,9 +19,7 @@ Configuration and scripts for Turris MOX router.
 │   │   ├── 49-tommyq-no-auth.conf          # Disable Turris auth for tommyq.cz
 │   │   ├── 99-tommyq-00-base.conf          # Base domain, HTTP redirect, SmartHome proxy, sport redirects
 │   │   ├── 99-tommyq-10-media.conf         # Media Services (Plex, Seerr, *arr, Calibre-Web, Audiobookshelf)
-│   │   ├── 99-tommyq-20-tools.conf         # Tools & Downloading (DSM, qBit, etc.)
-│   │   ├── 99-tommyq-30-sport.conf.template # Sport service (token auth)
-│   │   └── 99-tommyq-30-sport.conf         # Generated from template by deploy.sh
+│   │   └── 99-tommyq-20-tools.conf         # Tools & Downloading (DSM, qBit, etc.)
 │   └── deploy-lighttpd.sh              # Lighttpd-only deployment
 ├── www/                       # Services dashboard (deployed to /www/tommyq/)
 │   ├── index.html             # Dashboard page (service icons via dashboard-icons + Iconify MDI CDN)
@@ -46,9 +44,10 @@ Configuration and scripts for Turris MOX router.
     └── setup.md               # Setup documentation
 ```
 
-**Note:** The sport service frontend and Python code (activity, brouter, garage) live in the
-[tommyq-sport](https://github.com/tommyq86/tommyq-sport) repository and are deployed from there
-to `/srv/tommyq/sport/` by `deploy.sh`.
+**Note:** The sport service (`sport.tommyq.cz` — activity, brouter, garage) lives entirely in the
+[tommyq-sport](https://github.com/tommyq86/tommyq-sport) repository, including its lighttpd config
+(`99-tommyq-30-sport.conf`). It is deployed separately via `~/Systém/tommyq-sport/deploy.sh`.
+This repo only installs the lighttpd modules the sport config relies on (via `deploy.sh lighttpd`).
 
 **Note:** DNS configuration is managed via Knot Resolver (`/etc/kresd/custom.conf`). Local domains (`*.tommyq.cz`) resolve to `192.168.2.1`.
 
@@ -62,20 +61,18 @@ to `/srv/tommyq/sport/` by `deploy.sh`.
 
 Components:
 - `lighttpd` — modules (auto-installed via opkg), configs, reverse proxy (restarts lighttpd)
-- `scripts` — shell scripts to `/srv/tommyq/scripts/` (+ memory monitor, kresd-watchdog cron)
+- `scripts` — shell scripts to `/srv/tommyq/scripts/` (+ memory monitor, kresd-watchdog, new-device-alert cron)
 - `dashboard` — web dashboard (`/www/tommyq/`)
 - `system` — DNS, kresd, dnsmasq, hosts, CA cert, kresd init script fix (restarts DNS services)
-- `sport` — full sport service; expands to `activity brouter garage`
-- `activity` — Activity only (CGI, activity.html, generate_sport_maps, cron jobs)
-- `brouter` — BRouter only (CGI, index.html)
-- `garage` — Garage only
+
+The sport service (activity, brouter, garage) is deployed separately from
+[tommyq-sport](https://github.com/tommyq86/tommyq-sport): `~/Systém/tommyq-sport/deploy.sh`.
 
 Examples:
 ```bash
-./deploy.sh sport              # deploy full sport service (activity + brouter + garage)
-./deploy.sh activity           # deploy only activity
-./deploy.sh garage brouter     # garage + brouter
-./deploy.sh lighttpd sport     # lighttpd + full sport
+./deploy.sh lighttpd           # deploy lighttpd modules + configs
+./deploy.sh scripts            # deploy scripts + cron jobs
+./deploy.sh dashboard          # deploy web dashboard
 ./deploy.sh system --host root@192.168.2.1
 ```
 
@@ -94,46 +91,19 @@ cd lighttpd
 
 ## Sport Service
 
-Token-authenticated activity viewer at `sport.tommyq.cz/activity/`. Architecture:
+The sport service (`sport.tommyq.cz` — activity viewer, BRouter route planner, bike garage)
+is fully owned by the [tommyq-sport](https://github.com/tommyq86/tommyq-sport) repository:
+frontend, CGI, Python code, its lighttpd config (`99-tommyq-30-sport.conf`) and deployment.
 
-- **Frontend:** `tommyq-sport/activity/activity.html` → `/srv/tommyq/sport/activity/activity.html`
-- **CGI:** `tommyq-sport/activity/cgi/sport.cgi` — unified endpoint (API, refresh, auth, CRUD)
-- **Generator:** `tommyq-sport/activity/generate_sport_maps.py` — builds JSON data, weather, index
-- **Data:** `/srv/tommyq/sport/activity/data/{id}.json` — coords, altitude, speed, HR, gradient
-- **FIT files:** `/srv/tommyq/sport/activity/data/{id}.fit` — downloadable (admin only)
-
-### Access Control
-
-Two tokens:
-- **admin** — plný přístup (rename, delete, FIT download, refresh)
-- **public** — view only, pro sdílení aktivit
-
-Admin akce z LAN fungují bez hesla. Z VPN/venku vyžadují HTTP Basic auth (PAM) — lighttpd vynutí auth pro `sport.cgi?id=auth`. Frontend zobrazuje login tlačítko 🔑.
-
-### BRouter Route Planner
-
-Gravel route planner dostupný na `tommyq.cz/brouter`. Frontend je v `tommyq-sport/brouter/`, deploy přes `deploy.sh sport`. Routing API proxy směřuje na BRouter kontejner na leo:17777.
-
-Features: map with route, charts (altitude/speed/HR/gradient), GPX export (route only), FIT download (admin), rename (admin), PNG export, overview copy.
-
-Regeneration:
+Deploy it with:
 ```bash
-ssh turris 'python3 /srv/tommyq/sport/activity/generate_sport_maps.py'            # full (fetch + generate)
-ssh turris 'python3 /srv/tommyq/sport/activity/generate_sport_maps.py list-only'  # regenerate index only
-ssh turris 'python3 /srv/tommyq/sport/activity/generate_sport_maps.py <ID>'       # regenerate specific activity (weather, overview, zones)
+~/Systém/tommyq-sport/deploy.sh          # activity + brouter + garage + lighttpd config
 ```
 
-### Merged activities
-
-When a ride is split into multiple Bryton activities (e.g. device restart), merge and upload:
-
-```bash
-bryton merge-upload    # one command: download last 2, merge, upload, exclude, regenerate
-```
-
-See [tommyq-sport](https://github.com/tommyq86/tommyq-sport) for manual merge workflow.
-
-The `.exclude` file contains Bryton activity IDs (one per line) skipped during generation. Imported FIT files (names not starting with 5+ digits) are processed via `import_activity.py`.
+This Turris repo only provides the shared infrastructure the sport config depends on:
+lighttpd modules (`auth`, `cgi`, `authn_pam`, `proxy`, `setenv`, …), the base config
+(`var.nas_ip`, HTTP→HTTPS, `sport.tommyq.cz` routing) and DNS. Install/refresh them with
+`./deploy.sh lighttpd`.
 
 ## Docker on Leo
 

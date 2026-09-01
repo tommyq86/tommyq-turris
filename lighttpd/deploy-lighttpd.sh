@@ -21,9 +21,14 @@ scp_to() {
 
 echo "Deploying lighttpd configurations to $TURRIS_HOST..."
 
-# Clean up old tommyq configurations (only ours + legacy ca-cert)
+# Clean up legacy configs. Only remove configs that this repo owns and will
+# re-deploy below — the sport config (99-tommyq-30-sport.conf) is owned and
+# deployed separately by tommyq-sport/deploy.sh, so it must NOT be removed here.
 echo "  Cleaning up old configurations..."
-ssh_exec "rm -f /etc/lighttpd/conf.d/99-ca-cert.conf /etc/lighttpd/conf.d/99-tommyq-*.conf"
+ssh_exec "rm -f /etc/lighttpd/conf.d/99-ca-cert.conf"
+for conf in "$CONFIGS_DIR"/*.conf; do
+    ssh_exec "rm -f /etc/lighttpd/conf.d/$(basename "$conf")"
+done
 
 # Copy config files (skip *.template — only generated *.conf is deployed)
 for conf in "$CONFIGS_DIR"/*.conf; do
