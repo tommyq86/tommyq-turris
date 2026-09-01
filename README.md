@@ -44,7 +44,7 @@ Configuration and scripts for Turris MOX router.
     └── setup.md               # Setup documentation
 ```
 
-**Note:** The sport service (`sport.tommyq.cz` — activity, brouter, garage) lives entirely in the
+**Note:** The sport service (`sport.tommyq.cz` — activity, planner, garage) lives entirely in the
 [tommyq-sport](https://github.com/tommyq86/tommyq-sport) repository, including its lighttpd config
 (`99-tommyq-30-sport.conf`). It is deployed separately via `~/Systém/tommyq-sport/deploy.sh`.
 This repo only installs the lighttpd modules the sport config relies on (via `deploy.sh lighttpd`).
@@ -65,7 +65,7 @@ Components:
 - `dashboard` — web dashboard (`/www/tommyq/`)
 - `system` — DNS, kresd, dnsmasq, hosts, CA cert, kresd init script fix (restarts DNS services)
 
-The sport service (activity, brouter, garage) is deployed separately from
+The sport service (activity, planner, garage) is deployed separately from
 [tommyq-sport](https://github.com/tommyq86/tommyq-sport): `~/Systém/tommyq-sport/deploy.sh`.
 
 Examples:
@@ -91,13 +91,13 @@ cd lighttpd
 
 ## Sport Service
 
-The sport service (`sport.tommyq.cz` — activity viewer, BRouter route planner, bike garage)
+The sport service (`sport.tommyq.cz` — activity viewer, route planner, bike garage)
 is fully owned by the [tommyq-sport](https://github.com/tommyq86/tommyq-sport) repository:
 frontend, CGI, Python code, its lighttpd config (`99-tommyq-30-sport.conf`) and deployment.
 
 Deploy it with:
 ```bash
-~/Systém/tommyq-sport/deploy.sh          # activity + brouter + garage + lighttpd config
+~/Systém/tommyq-sport/deploy.sh          # activity + planner + garage + lighttpd config
 ```
 
 This Turris repo only provides the shared infrastructure the sport config depends on:
@@ -124,7 +124,7 @@ All services are available via HTTPS with Cloudflare Origin CA certificate:
 
 - `https://tommyq.cz` - Services dashboard
 - `https://sport.tommyq.cz/activity/` - Sport activities (token required)
-- `https://sport.tommyq.cz/brouter/` - BRouter gravel route planner (routing API proxy na leo:17777)
+- `https://sport.tommyq.cz/planner/` - Gravel route planner (BRouter routing API proxy na leo:17777)
 - `https://sport.tommyq.cz/garage/` - Bike garage
 - `https://portainer.tommyq.cz` - Docker management
 - `https://dozzle.tommyq.cz` - Docker logs viewer
