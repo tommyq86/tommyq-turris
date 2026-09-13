@@ -242,6 +242,11 @@ if has_component scripts; then
     update_cron "turris-new-device-alert" \
         "*/5 * * * * /srv/tommyq/scripts/turris-new-device-alert.sh >/dev/null 2>&1"
 
+    # /srv USB flash-drive mount check — alert if /srv drops off the USB disk
+    # (falls back to SD) so it can be re-seated before the SD fills up.
+    update_cron "srv-mount-check" \
+        "*/5 * * * * /srv/tommyq/scripts/srv-mount-check.sh >/dev/null 2>&1"
+
     echo "  ✓ Scripts deployed"
     echo ""
 fi

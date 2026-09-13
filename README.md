@@ -30,6 +30,7 @@ Configuration and scripts for Turris MOX router.
 │   ├── leo-trigger-turris-backup.sh  # Trigger backup from Leo
 │   ├── turris-mem-monitor.sh         # Memory monitoring (RAM/SWAP)
 │   ├── turris-new-device-alert.sh    # New device notification
+│   ├── srv-mount-check.sh            # Alert if /srv drops off its USB flash drive (→ SD fallback)
 │   ├── pre-update-backup.sh          # Pre-TurrisOS update backup
 │   ├── post-update-restore.sh        # Post-TurrisOS update restore
 │   ├── safe-reboot.sh                # Safe reboot (clear updater flags)
@@ -61,7 +62,7 @@ This repo only installs the lighttpd modules the sport config relies on (via `de
 
 Components:
 - `lighttpd` — modules (auto-installed via opkg), configs, reverse proxy (restarts lighttpd)
-- `scripts` — shell scripts to `/srv/tommyq/scripts/` (+ memory monitor, kresd-watchdog, new-device-alert cron)
+- `scripts` — shell scripts to `/srv/tommyq/scripts/` (+ memory monitor, kresd-watchdog, new-device-alert, srv-mount-check cron)
 - `dashboard` — web dashboard (`/www/tommyq/`)
 - `system` — DNS, kresd, dnsmasq, hosts, CA cert, kresd init script fix (restarts DNS services)
 
