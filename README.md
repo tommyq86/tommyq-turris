@@ -128,7 +128,7 @@ All services are available via HTTPS with Cloudflare Origin CA certificate:
 - `https://sport.tommyq.cz/planner/` - Gravel route planner (BRouter routing API proxy na leo:17777)
 - `https://sport.tommyq.cz/garage/` - Bike garage
 - `https://portainer.tommyq.cz` - Docker management
-- `https://actualbudget.tommyq.cz` - Accounting
+- `https://actual.tommyq.cz` - Accounting
 - `https://dozzle.tommyq.cz` - Docker logs viewer
 - `https://radarr.tommyq.cz` - Movies
 - `https://sonarr.tommyq.cz` - TV Shows
