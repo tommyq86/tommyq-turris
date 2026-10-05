@@ -3,7 +3,7 @@
 # Sends notification via Turris notification system (email)
 
 LEASE_FILE="/tmp/dhcp.leases"
-KNOWN_FILE="/root/scripts/.known_devices"
+KNOWN_FILE="/srv/tommyq/scripts/.known_devices"
 
 [ -f "$KNOWN_FILE" ] || touch "$KNOWN_FILE"
 
