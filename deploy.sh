@@ -220,8 +220,15 @@ fi
 if has_component scripts; then
     echo "▸ Deploying scripts..."
     ensure_dir "/srv/tommyq/scripts/"
+
     for script in "$SCRIPT_DIR/scripts"/*.sh; do
         filename=$(basename "$script")
+
+        # srv-mount-check has its own dedicated location
+        if [ "$filename" = "srv-mount-check.sh" ]; then
+            continue
+        fi
+
         echo "  $filename"
         scp_to "$script" "/srv/tommyq/scripts/"
         ssh_exec "chmod +x /srv/tommyq/scripts/$filename"
@@ -244,8 +251,13 @@ if has_component scripts; then
 
     # /srv USB flash-drive mount check — alert if /srv drops off the USB disk
     # (falls back to SD) so it can be re-seated before the SD fills up.
+    echo "  srv-mount-check.sh -> /root/scripts/"
+    ensure_dir "/root/scripts/"
+    scp_to "$SCRIPT_DIR/scripts/srv-mount-check.sh" "/root/scripts/srv-mount-check.sh"
+    ssh_exec "chmod +x /root/scripts/srv-mount-check.sh"
+
     update_cron "srv-mount-check" \
-        "*/5 * * * * /srv/tommyq/scripts/srv-mount-check.sh >/dev/null 2>&1"
+        "*/5 * * * * /root/scripts/srv-mount-check.sh >/dev/null 2>&1"
 
     echo "  ✓ Scripts deployed"
     echo ""
