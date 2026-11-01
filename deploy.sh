@@ -81,14 +81,29 @@ update_cron() {
 
     ssh_exec "crontab -l 2>/dev/null" > "$tmp" || true
 
-    if ! grep -q "$pattern" "$tmp"; then
-        echo "$entry" >> "$tmp"
-        scp_to "$tmp" "/tmp/newcron"
-        ssh_exec "crontab /tmp/newcron"
-        log "Cron updated: $entry"
+    # Current line matching the pattern (if any)
+    local current
+    current=$(grep -F "$pattern" "$tmp" || true)
+
+    if [[ "$current" == "$entry" ]]; then
+        # Already present and identical — nothing to do
+        rm -f "$tmp"
+        return
     fi
 
-    rm -f "$tmp"
+    # Remove any existing line(s) matching the pattern, then append the
+    # current entry. This makes the update a "replace" instead of
+    # "insert-if-missing", so changed schedules/paths/args get applied.
+    local new
+    new=$(mktemp)
+    grep -Fv "$pattern" "$tmp" > "$new" || true
+    echo "$entry" >> "$new"
+
+    scp_to "$new" "/tmp/newcron"
+    ssh_exec "crontab /tmp/newcron"
+    log "Cron updated: $entry"
+
+    rm -f "$tmp" "$new"
 }
 
 # ------------------------------------------------------------
@@ -243,7 +258,7 @@ if has_component scripts; then
 
     # kresd-watchdog
     update_cron "kresd-watchdog" \
-        "*/2 * * * * /srv/tommyq/scripts/kresd-watchdog.sh >/dev/null 2>&1"
+        "*/5 * * * * /srv/tommyq/scripts/kresd-watchdog.sh >/dev/null 2>&1"
 
     # new device alert
     update_cron "turris-new-device-alert" \
