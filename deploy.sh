@@ -81,9 +81,11 @@ update_cron() {
 
     ssh_exec "crontab -l 2>/dev/null" > "$tmp" || true
 
-    # Current line matching the pattern (if any)
+    # Current line matching the pattern (if any). The pattern is treated as a
+    # regex (extended) so callers can match on parts of the command line, the
+    # same way the sport deploy.sh does.
     local current
-    current=$(grep -F "$pattern" "$tmp" || true)
+    current=$(grep -E "$pattern" "$tmp" || true)
 
     if [[ "$current" == "$entry" ]]; then
         # Already present and identical — nothing to do
@@ -96,7 +98,7 @@ update_cron() {
     # "insert-if-missing", so changed schedules/paths/args get applied.
     local new
     new=$(mktemp)
-    grep -Fv "$pattern" "$tmp" > "$new" || true
+    grep -Ev "$pattern" "$tmp" > "$new" || true
     echo "$entry" >> "$new"
 
     scp_to "$new" "/tmp/newcron"
