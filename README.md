@@ -159,6 +159,61 @@ sudo install-cert  # from tommyq-bash
 Install-Certificate  # from tommyq-pwsh
 ```
 
+### Certificate Rotation
+
+The origin keypair is a Cloudflare Origin CA cert for `*.tommyq.cz` + apex,
+**valid until 2040-11-14** — so rotation is only needed on key compromise or a
+DR rebuild of the router. The private key lives ONLY on the router filesystem
+(not in any repo); keep an off-repo backup.
+
+Where it lives / who reads it:
+- `/etc/ssl/certs/turris_combined.pem` — key+cert concatenated; lighttpd serves
+  it for tommyq.cz **and all subdomains** (sport., portainer., …).
+- `/etc/ssl/certs/turris.crt` + `/etc/ssl/private/turris.key` — split pair for
+  the assistant service on `:3443` (same keypair, easy to forget).
+- `/www/ca.crt` — the public Origin CA **root** (not the leaf), served over HTTP
+  for LAN clients. Stable — do NOT touch on a leaf rotation.
+
+Clients and how they trust:
+- **PowerShell / Bash** trust the Origin CA **root** via the system store →
+  a leaf rotation does NOT affect them (nothing to do).
+- **Android (tommyq-health-sync)** pins the **leaf** cert as a trust anchor
+  (`app/src/main/res/raw/turris_origin.pem`). It MUST be updated + the app
+  rebuilt on every rotation, or it breaks on the LAN. (Pinning the root instead
+  is NOT a fix: that RSA root expires 2029-08-15, earlier than the leaf — see
+  the comment in `network_security_config.xml`.)
+
+Runbook:
+```bash
+# 1. New cert+key from Cloudflare dashboard: SSL/TLS -> Origin Server ->
+#    Create Certificate. Save new.crt and new.key. (cloudflare_manager.py does
+#    NOT do this — it has no Origin CA API.)
+
+# 2. Deploy the server keypair on turris (ssh root@turris):
+cat new.key new.crt > /etc/ssl/certs/turris_combined.pem   # order: key then cert
+chmod 0600 /etc/ssl/certs/turris_combined.pem
+#    If the assistant :3443 pair is rotated too:
+cp new.crt /etc/ssl/certs/turris.crt
+cp new.key /etc/ssl/private/turris.key && chmod 0600 /etc/ssl/private/turris.key
+
+# 3. Validate + restart:
+lighttpd -t -f /etc/lighttpd/lighttpd.conf
+/etc/init.d/lighttpd restart
+/etc/init.d/assistant restart        # only if the :3443 cert changed
+
+# 4. /www/ca.crt — leave unchanged (Origin CA root is stable).
+
+# 5. Android app (REQUIRED — else the app fails TLS on the LAN):
+cp new.crt ~/Systém/tommyq-health-sync/app/src/main/res/raw/turris_origin.pem
+cd ~/Systém/tommyq-health-sync && ./build_and_install.sh
+
+# 6. Back up new.key / turris_combined.pem OFF-repo (DR: post-update-restore.sh
+#    restores configs + /www/ca.crt but NOT the private key).
+```
+
+Rotation checklist: turris_combined.pem · turris.crt+turris.key (assistant) ·
+Android pem + rebuild · `lighttpd -t` + restart · off-repo key backup.
+
 ## Maintenance
 
 ### TurrisOS Update
