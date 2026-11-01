@@ -50,7 +50,7 @@ if [ -f "$LAST_BACKUP_FILE" ]; then
 fi
 
 echo "Starting backup on turris..."
-if ssh -o ConnectTimeout=10 turris "/root/turris-backup.sh"; then
+if ssh -o ConnectTimeout=10 turris "/srv/tommyq/scripts/turris-backup.sh"; then
   date +%s > "$LAST_BACKUP_FILE"
   echo "Backup completed successfully"
 else
