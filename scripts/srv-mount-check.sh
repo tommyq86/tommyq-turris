@@ -1,7 +1,7 @@
 #!/bin/sh
 # Verify /srv is mounted from the dedicated USB flash drive (btrfs LABEL=srv).
 #
-# /srv holds all tommyq data (sport tile store, activity data, backups). It
+# /srv holds tommyq data on turris (activity data, planner data, backups). It
 # lives on a USB 3.0 flash drive mounted via UCI fstab. If the drive drops off
 # (disconnect / power glitch), /srv falls back to the SD-card root filesystem,
 # which is small and NOT where the data belongs — silent data-loss risk for new
@@ -31,7 +31,7 @@ fi
 touch "$STATE"
 
 create_notification -s error \
-    "/srv NENÍ na USB flashce! Data /srv (mapové dlaždice, aktivity, zálohy) mají běžet z USB disku (LABEL=srv), ale /srv je teď na '${srv_dev:-nic}' místo '${want_dev:-USB}'. Flashka se nejspíš odpojila — zkontroluj a znovu připoj, jinak hrozí zaplnění SD karty a ztráta nových zápisů." \
-    "/srv is NOT on the USB flash drive! /srv data (map tiles, activities, backups) must run from the USB disk (LABEL=srv), but /srv is currently on '${srv_dev:-none}' instead of '${want_dev:-USB}'. The drive likely disconnected — re-seat it, otherwise the SD card may fill up and new writes be lost."
+    "/srv NENÍ na USB flashce! Data /srv (aktivity, data planneru, zálohy) mají běžet z USB disku (LABEL=srv), ale /srv je teď na '${srv_dev:-nic}' místo '${want_dev:-USB}'. Flashka se nejspíš odpojila — zkontroluj a znovu připoj, jinak hrozí zaplnění SD karty a ztráta nových zápisů." \
+    "/srv is NOT on the USB flash drive! /srv data (activities, planner data, backups) must run from the USB disk (LABEL=srv), but /srv is currently on '${srv_dev:-none}' instead of '${want_dev:-USB}'. The drive likely disconnected — re-seat it, otherwise the SD card may fill up and new writes be lost."
 
 /usr/bin/notifier

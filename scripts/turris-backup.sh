@@ -61,34 +61,26 @@ tar czf - -C / etc/config 2>/dev/null | ssh tommyq@leo "cat > ${BACKUP_DIR}/${DA
 echo "Backup: ssh..."
 tar czf - -C / root/.ssh 2>/dev/null | ssh tommyq@leo "cat > ${BACKUP_DIR}/${DATE}/ssh.tar.gz"
 
-# Assistant + sport (config, app data, logs) under /srv/tommyq — EXCEPT the
-# map tiles (maps/), which are large and change rarely. The tar.gz keeps the
-# 7-version rotation for everything small and valuable (activity/data jízdy,
-# planner/data routes-users-nogos, config/sport.conf, assistant, logs); the
-# tiles get a separate single live mirror below (no point tar'ing GBs of
-# rarely-changing tiles into 7 full copies). Code itself comes from git
-# (deploy.sh), but it's tiny so we leave it in the tar for a self-contained
-# restore.
+# Assistant + sport (config, app data, logs) under /srv/tommyq. The map tiles
+# are NO LONGER here — they moved to the leo `maps` Docker service
+# (/volume1/docker/maps/store), so turris holds no tile store to back up. The
+# tar.gz keeps the 7-version rotation for everything small and valuable
+# (activity/data jízdy, planner/data routes-users-nogos, config/sport.conf,
+# assistant, logs). Code itself comes from git (deploy.sh), but it's tiny so we
+# leave it in the tar for a self-contained restore. The maps/ exclude is kept
+# as a belt-and-suspenders guard in case a stale store dir lingers on turris.
 echo "Backup: /srv/tommyq (excl. maps tiles)..."
 tar czf - -C / --exclude='srv/tommyq/sport/maps' srv/tommyq 2>/dev/null \
     | ssh tommyq@leo "cat > ${BACKUP_DIR}/${DATE}/srv-tommyq.tar.gz"
 
-# Map tiles: a single live rsync mirror (not in the dated rotation). Tiles are
-# regenerable (scripts/maps.sh) and large, so one mirror of the current state
-# is enough; rsync transfers only what changed since last run. Kept OUTSIDE the
-# per-date dirs so the 7-version cleanup below never touches it.
-TILES_MIRROR="/var/services/homes/tommyq/turris-tiles-mirror"
-if [ -d /srv/tommyq/sport/maps ]; then
-    echo "Backup: map tiles (rsync mirror)..."
-    ssh tommyq@leo "mkdir -p ${TILES_MIRROR}"
-    rsync -rlt --delete --rsync-path=/usr/bin/rsync \
-        /srv/tommyq/sport/maps/ "tommyq@leo:${TILES_MIRROR}/" \
-        || echo "WARNING: tiles rsync failed (non-fatal)"
-fi
+# NB: the tile store is no longer backed up from turris — it lives on leo now
+# (the `maps` Docker service volume, /volume1/docker/maps/store) and is covered
+# by leo's own storage. Self-rendered layers (osm, cyclosm) are regenerable on
+# tiger (render-tiles-tiger.sh); the pre-fetched layers were migrated to leo
+# (scripts/migrate-tiles-to-leo.sh in tommyq-sport).
 
-# Clean up old DATED backups (keep last 7). The tiles mirror is a sibling dir,
-# not under BACKUP_DIR/<date>, so it is not affected.
+# Clean up old DATED backups (keep last 7).
 echo "Cleaning up old backups..."
 ssh tommyq@leo "cd ${BACKUP_DIR} && ls -t | tail -n +8 | xargs -r rm -rf"
 
-echo "=== Backup completed: ${BACKUP_DIR}/${DATE} (+ tiles mirror ${TILES_MIRROR}) ==="
+echo "=== Backup completed: ${BACKUP_DIR}/${DATE} ==="
