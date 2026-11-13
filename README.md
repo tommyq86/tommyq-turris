@@ -144,6 +144,7 @@ All services are available via HTTPS with Cloudflare Origin CA certificate:
 - `https://download.tommyq.cz` - Synology Download Station
 - `https://plex.tommyq.cz` - Media server
 - `https://dsm.tommyq.cz` - Synology DSM
+- `https://iventoy.tommyq.cz` - iVentoy (PXE boot, leo, port 26000)
 
 ## CA Certificate
 
