@@ -135,7 +135,7 @@ All services are available via HTTPS with Cloudflare Origin CA certificate:
 - `https://lidarr.tommyq.cz` - Music
 - `https://seerr.tommyq.cz` - Media requests
 - `https://prowlarr.tommyq.cz` - Indexer management
-- `https://holyarrs.tommyq.cz` - Holyarrs (leo, port 6262)
+- `https://holyarrs.tommyq.cz` - HollyArrs (leo, port 6262)
 - `https://calibre.tommyq.cz` - Calibre-Web (e-knihy, port 8083)
 - `https://audiobookshelf.tommyq.cz` - Audiobookshelf (audioknihy, port 13378)
 - `https://filezilla.tommyq.cz` - FTP client (KasmVNC)
