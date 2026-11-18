@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy Turris configuration and scripts
 # Usage: deploy.sh [components...] [--host HOST]
-# Components: lighttpd, scripts, dashboard, system, all (default)
+# Components: lighttpd, scripts, dashboard, cgi, system, all (default)
 #
 # Note: sport service (activity + brouter + garage) is deployed separately
 # from tommyq-sport — run `~/Systém/tommyq-sport/deploy.sh`.
@@ -125,6 +125,7 @@ Komponenty:
     lighttpd    Lighttpd moduly, konfigurace a reverse proxy
     scripts     Shell skripty (/srv/tommyq/scripts/)
     dashboard   Webový dashboard (/www/tommyq/)
+    cgi         CGI pro dashboard (/srv/tommyq/cgi/, wol.cgi + wol.conf)
     system      DNS, kresd, dnsmasq, hosts, CA certifikát
     all         Vše (výchozí, pokud není zadána žádná komponenta)
 
@@ -151,6 +152,7 @@ Components:
     lighttpd    Lighttpd modules, configs and reverse proxy
     scripts     Shell scripts (/srv/tommyq/scripts/)
     dashboard   Web dashboard (/www/tommyq/)
+    cgi         Dashboard CGI (/srv/tommyq/cgi/, wol.cgi + wol.conf)
     system      DNS, kresd, dnsmasq, hosts, CA certificate
     all         Everything (default if no component specified)
 
@@ -173,7 +175,7 @@ EOF
             TURRIS_HOST="$2"
             shift 2
             ;;
-        lighttpd|scripts|dashboard|system|all)
+        lighttpd|scripts|dashboard|cgi|system|all)
             COMPONENTS+=("$1")
             shift
             ;;
@@ -191,7 +193,7 @@ done
 
 # Default to all if no components specified
 if [[ ${#COMPONENTS[@]} -eq 0 ]] || [[ " ${COMPONENTS[*]} " == *" all "* ]]; then
-    COMPONENTS=(lighttpd scripts dashboard system)
+    COMPONENTS=(lighttpd scripts dashboard cgi system)
 fi
 
 # Check if component is requested
@@ -223,6 +225,12 @@ if has_component lighttpd; then
 
     # Disable conflicting Turris configs
     ssh_exec "cd /etc/lighttpd/conf.d && for f in 50-turris-auth.conf 80-*.conf; do [ -f \$f ] && [ ! -f \$f.disabled ] && mv \$f \$f.disabled; done || true"
+
+    # Loading screen for leo-hosted services (server.errorfile-prefix points here):
+    # the same page answers 500, 502, 503 and 504.
+    ensure_dir "/srv/tommyq/errors"
+    scp_to "$SCRIPT_DIR/errors/status-503.html" "/srv/tommyq/errors/status-503.html"
+    ssh_exec "cd /srv/tommyq/errors && for c in 500 502 504; do cp -f status-503.html status-\$c.html; done"
 
     cd "$SCRIPT_DIR/lighttpd"
     ./deploy-lighttpd.sh "$TURRIS_HOST"
@@ -286,6 +294,29 @@ if has_component dashboard; then
     ensure_dir "/www/tommyq"
     scp_dir_to "$SCRIPT_DIR/www/." "/www/tommyq/"
     echo "  ✓ Dashboard deployed"
+    echo ""
+fi
+
+# --- CGI (dashboard helpers) ---
+if has_component cgi; then
+    echo "▸ Deploying CGI..."
+    ensure_dir "/srv/tommyq/cgi /srv/tommyq/config"
+    for cgi in "$SCRIPT_DIR/cgi"/*.cgi; do
+        filename=$(basename "$cgi")
+        echo "  $filename"
+        scp_to "$cgi" "/srv/tommyq/cgi/$filename"
+        ssh_exec "chmod +x /srv/tommyq/cgi/$filename"
+    done
+    # wol.cgi reads the MAC of leo from wol.conf — same `name=MAC` format as the
+    # `wol` helper on tiger. Kept out of git: deployed from ~/.tommyq/wol.conf.
+    if [ -f "$HOME/.tommyq/wol.conf" ]; then
+        scp_to "$HOME/.tommyq/wol.conf" "/srv/tommyq/config/wol.conf"
+        ssh_exec "chmod 644 /srv/tommyq/config/wol.conf"
+        echo "  wol.conf"
+    else
+        echo "  ! ~/.tommyq/wol.conf not found — wol.cgi can't wake leo until it is deployed"
+    fi
+    echo "  ✓ CGI deployed"
     echo ""
 fi
 

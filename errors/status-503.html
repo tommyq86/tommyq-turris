@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<!--
+  Loading screen shown by lighttpd instead of a bare 500/502/503/504 for services that
+  run on leo (server.errorfile-prefix, see lighttpd/configs/99-tommyq-00-base.conf).
+  Deployed as status-500/502/503/504.html. Self-contained: no external requests.
+  (500 too: while a container starts, lighttpd answers 500 when the backend accepts
+  the connection and drops it — not only 503 when nothing listens yet.)
+
+  What it does (in the visitor's browser):
+   - polls the page's own URL until it stops answering 500/502/503/504, then reloads;
+   - asks /cgi/wol.cgi on tommyq.cz whether leo is up; if it sleeps, wakes it
+     (LAN only — from outside the LAN the CGI answers 403 and we just keep polling);
+   - after a few minutes with leo up but the service silent, says so.
+-->
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Načítám…</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; }
+  .card { width: 100%; max-width: 26rem; text-align: center; padding: 2.5rem 2rem; border-radius: 16px;
+          background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 12px 40px rgba(0,0,0,0.45); }
+  .spinner { width: 56px; height: 56px; margin: 0 auto 1.5rem; border-radius: 50%;
+             border: 5px solid rgba(255,255,255,0.15); border-top-color: #38bdf8; animation: spin 0.9s linear infinite; }
+  .spinner.stalled { animation: none; border-color: #f59e0b; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 0.5rem; }
+  #msg { color: #cbd5e1; min-height: 1.5em; }
+  .steps { display: flex; justify-content: center; gap: 1.5rem; margin: 1.5rem 0 0.25rem; font-size: 0.9rem; color: #94a3b8; }
+  .step.active { color: #38bdf8; }
+  .step.done { color: #4ade80; }
+  .bar { height: 4px; margin-top: 1.25rem; border-radius: 2px; background: rgba(255,255,255,0.12); overflow: hidden; }
+  .bar i { display: block; width: 40%; height: 100%; border-radius: 2px; background: #38bdf8; animation: slide 1.6s ease-in-out infinite; }
+  .bar.stalled i { animation: none; width: 100%; background: #f59e0b; }
+  @keyframes slide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+  #hint { margin-top: 1.25rem; font-size: 0.9rem; color: #fbbf24; }
+  button { margin-top: 1rem; padding: 0.55rem 1.2rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.25);
+           background: rgba(255,255,255,0.1); color: inherit; font-size: 0.95rem; cursor: pointer; }
+  button:hover { background: rgba(255,255,255,0.2); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="spinner" id="spin"></div>
+  <h1>Načítám <span id="svc"></span></h1>
+  <p id="msg">Zjišťuji stav…</p>
+  <div class="steps">
+    <span class="step" id="stLeo">○ leo</span>
+    <span class="step" id="stSvc">○ služba</span>
+  </div>
+  <div class="bar" id="bar"><i></i></div>
+  <p id="hint" hidden></p>
+  <button id="retry" hidden onclick="location.reload()">Zkusit znovu</button>
+  <noscript><p style="margin-top:1rem">Služba je dočasně nedostupná (503). Zkus to za chvíli.</p></noscript>
+</div>
+<script>
+(function () {
+  var WOL = 'https://tommyq.cz/cgi/wol.cgi';
+  var name = location.hostname.replace(/\.tommyq\.cz$/, '');
+  var label = name.charAt(0).toUpperCase() + name.slice(1);
+  var $ = function (id) { return document.getElementById(id); };
+  $('svc').textContent = label;
+  document.title = label + ' – načítám…';
+
+  var t0 = Date.now(), lastWake = 0;
+  var STALL_AFTER = 3 * 60 * 1000;      // leo up, service still silent → say so
+
+  function setStep(id, state, text) {
+    var el = $(id);
+    el.className = 'step ' + state;
+    el.textContent = (state === 'done' ? '✓ ' : state === 'active' ? '⏳ ' : '○ ') + text;
+  }
+  function show(msg, leo, svc) {
+    $('msg').textContent = msg;
+    setStep('stLeo', leo, 'leo');
+    setStep('stSvc', svc, 'služba');
+  }
+
+  // Is the service answering again? The error page itself is served with 500/502/503/504.
+  function serviceUp() {
+    return fetch(location.href, { cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(8000) })
+      .then(function (r) { return r.type === 'opaqueredirect' || [500, 502, 503, 504].indexOf(r.status) < 0; })
+      .catch(function () { return false; });
+  }
+
+  // leo state from the dashboard CGI. LAN only: 403 → we are outside the LAN.
+  function wol(query, init) {
+    return fetch(WOL + query, Object.assign({ cache: 'no-store', signal: AbortSignal.timeout(8000) }, init || {}))
+      .then(function (r) {
+        if (r.status === 403) return { lan: false };
+        return r.json();
+      });
+  }
+
+  function tick() {
+    serviceUp().then(function (up) {
+      if (up) { show('Hotovo, načítám…', 'done', 'done'); location.reload(); return; }
+      return wol('?status').catch(function () { return null; }).then(function (s) {
+        var waited = Date.now() - t0;
+        if (s && s.lan === false) {
+          show('Služba je teď nedostupná. Zkouším to znovu…', 'pending', 'active');
+        } else if (s && s.leo === false) {
+          show('💤 leo spí nebo startuje — probouzím…', 'active', 'pending');
+          if (Date.now() - lastWake > 45000) {          // magic packets can get lost: repeat
+            lastWake = Date.now();
+            wol('?wake', { method: 'POST' }).catch(function () {});
+          }
+        } else if (s && s.leo) {
+          show('leo běží, čekám na službu…', 'done', 'active');
+          if (waited > STALL_AFTER) {
+            $('spin').classList.add('stalled'); $('bar').classList.add('stalled');
+            $('hint').hidden = false; $('retry').hidden = false;
+            $('hint').textContent = 'Služba pořád neodpovídá — pravděpodobně na leo neběží. Zkusím to dál, ale může být potřeba ji spustit (Portainer).';
+          }
+        } else {
+          show('Čekám na službu…', 'pending', 'active');
+        }
+        setTimeout(tick, 3000);
+      });
+    });
+  }
+  tick();
+})();
+</script>
+</body>
+</html>

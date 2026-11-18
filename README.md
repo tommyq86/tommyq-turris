@@ -25,6 +25,10 @@ Configuration and scripts for Turris MOX router.
 │   ├── index.html             # Dashboard page (service icons via dashboard-icons + Iconify MDI CDN)
 │   ├── logo.png               # Dashboard header logo
 │   └── carbon.png             # Dashboard background
+├── cgi/                       # Deployed to /srv/tommyq/cgi/ (served at https://tommyq.cz/cgi/)
+│   └── wol.cgi                # Wake-on-LAN for leo (loading screen + sport planner button), LAN-only
+├── errors/
+│   └── status-503.html        # Loading screen for leo services (→ /srv/tommyq/errors/status-{500,502,503,504}.html)
 ├── scripts/                   # Deployed to /srv/tommyq/scripts/
 │   ├── turris-backup.sh              # Backup Turris to Synology NAS
 │   ├── leo-trigger-turris-backup.sh  # Trigger backup from Leo
@@ -64,6 +68,7 @@ Components:
 - `lighttpd` — modules (auto-installed via opkg), configs, reverse proxy (restarts lighttpd)
 - `scripts` — shell scripts to `/srv/tommyq/scripts/` (+ memory monitor, kresd-watchdog, new-device-alert, srv-mount-check cron)
 - `dashboard` — web dashboard (`/www/tommyq/`)
+- `cgi` — dashboard CGI to `/srv/tommyq/cgi/` (+ `~/.tommyq/wol.conf` → `/srv/tommyq/config/wol.conf`)
 - `system` — DNS, kresd, dnsmasq, hosts, CA cert, kresd init script fix (restarts DNS services)
 
 The sport service (activity, planner, garage) is deployed separately from
@@ -74,6 +79,7 @@ Examples:
 ./deploy.sh lighttpd           # deploy lighttpd modules + configs
 ./deploy.sh scripts            # deploy scripts + cron jobs
 ./deploy.sh dashboard          # deploy web dashboard
+./deploy.sh cgi                # deploy dashboard CGI (wol.cgi) + wol.conf
 ./deploy.sh system --host root@192.168.2.1
 ```
 
@@ -145,6 +151,46 @@ All services are available via HTTPS with Cloudflare Origin CA certificate:
 - `https://plex.tommyq.cz` - Media server
 - `https://dsm.tommyq.cz` - Synology DSM
 - `https://iventoy.tommyq.cz` - iVentoy (PXE boot, leo, port 26000)
+- `https://photos.tommyq.cz` - Synology Photos (leo, port 5080)
+
+## Wake-on-LAN (leo) and the loading screen
+
+Almost every service runs on **leo** (the NAS), which sleeps when idle. Instead of a bare
+`503` the service shows a **loading screen** (`errors/status-503.html`, deployed to
+`/srv/tommyq/errors/` as `status-500/502/503/504.html`; lighttpd `server.errorfile-prefix` in
+`99-tommyq-00-base.conf`). It applies to every `*.tommyq.cz` vhost except `sport` (its CGI/tile/
+BRouter errors must stay plain for API clients) and `plex` (has its own fallback to app.plex.tv),
+so new leo services are covered automatically.
+
+The page runs in the visitor's browser and:
+- polls its own URL until the service stops answering 500/502/503/504 (500 too: while a
+  container starts, lighttpd answers 500 when the backend accepts the connection and drops it),
+  then reloads itself,
+- asks `/cgi/wol.cgi` whether leo is up; if it sleeps it **sends Wake-on-LAN** (repeated every
+  45 s while leo stays down) — so it works the same from the dashboard, a bookmark or a typed URL,
+- shows the progress (💤 leo spí → leo běží → služba), and after 3 min with leo up but the
+  service silent says so (the service itself probably is not running on leo).
+
+Outside the LAN the CGI answers 403: the page then just keeps polling and never wakes anything.
+A sleeping leo is detected in ~3 s (`Host is unreachable`), so the loading screen appears quickly.
+
+`cgi/wol.cgi` (Python, no root, no `etherwake`):
+
+| Request | Result |
+|---|---|
+| `GET ?status` | `{"up", "leo", "routing", "ip"}` — `leo`: NAS alive (SSH port 22, up long before Docker); `routing`: BRouter + tile server accept connections (`routing_ports`, default `17777,12347`) |
+| `POST ?wake` | sends the magic packet, `{"sent": true}` |
+
+- **LAN only** (`lan_cidr`, default `192.168.2.0/24`); other callers get 403. A POST also
+  needs an `Origin` of `tommyq.cz` / `*.tommyq.cz`. CORS comes from TurrisOS' global
+  `Access-Control-Allow-Origin: *` (the CGI adds none — a second header would break it).
+- The packet goes to the **directed broadcast** `192.168.2.255`, not `255.255.255.255`: on
+  the router the latter follows the default route and leaves via the WAN port (verified
+  with `tcpdump`), so leo would never receive it.
+- Config `/srv/tommyq/config/wol.conf` (from `~/.tommyq/wol.conf`, not in git): same
+  `name=MAC` format as the `wol` helper on tiger — `leo=aa:bb:cc:dd:ee:ff`. Optional keys:
+  `leo_ip`, `leo_broadcast`, `leo_alive_port`, `routing_ports`, `lan_cidr`. Unknown keys are ignored.
+- The sport planner's "leo" button (layer control, admin only) calls this same CGI.
 
 ## CA Certificate
 
