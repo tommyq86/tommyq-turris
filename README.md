@@ -9,6 +9,8 @@ Configuration and scripts for Turris MOX router.
 - [Scripts](scripts/)
 - [System Configuration](system/)
 - [Web Dashboard](www/)
+- [Dashboard CGI (Wake-on-LAN)](cgi/)
+- [Loading screen for leo services](errors/)
 
 ## Structure
 
@@ -17,7 +19,7 @@ Configuration and scripts for Turris MOX router.
 ├── lighttpd/
 │   ├── configs/
 │   │   ├── 49-tommyq-no-auth.conf          # Disable Turris auth for tommyq.cz
-│   │   ├── 99-tommyq-00-base.conf          # Base domain, HTTP redirect, SmartHome proxy, sport redirects
+│   │   ├── 99-tommyq-00-base.conf          # Base domain, HTTP redirect, SmartHome proxy, sport redirects, /cgi/ alias, loading screen for leo services
 │   │   ├── 99-tommyq-10-media.conf         # Media Services (Plex, Seerr, *arr, Calibre-Web, Audiobookshelf)
 │   │   └── 99-tommyq-20-tools.conf         # Tools & Downloading (DSM, qBit, etc.)
 │   └── deploy-lighttpd.sh              # Lighttpd-only deployment
@@ -65,7 +67,8 @@ This repo only installs the lighttpd modules the sport config relies on (via `de
 ```
 
 Components:
-- `lighttpd` — modules (auto-installed via opkg), configs, reverse proxy (restarts lighttpd)
+- `lighttpd` — modules (auto-installed via opkg), configs, reverse proxy, loading screen for leo services
+  (`errors/` → `/srv/tommyq/errors/`); restarts lighttpd
 - `scripts` — shell scripts to `/srv/tommyq/scripts/` (+ memory monitor, kresd-watchdog, new-device-alert, srv-mount-check cron)
 - `dashboard` — web dashboard (`/www/tommyq/`)
 - `cgi` — dashboard CGI to `/srv/tommyq/cgi/` (+ `~/.tommyq/wol.conf` → `/srv/tommyq/config/wol.conf`)

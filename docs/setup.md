@@ -24,7 +24,20 @@ Install root CA and certificates for local services:
 ### 4. Lighttpd Configuration
 Copy configurations from `lighttpd/configs/` to `/etc/lighttpd/conf.d/`.
 
-### 5. Assistant Service (Optional)
+### 5. Wake-on-LAN for leo (dashboard CGI + loading screen)
+`deploy.sh cgi` installs `cgi/wol.cgi` and copies `~/.tommyq/wol.conf` (not in git) to
+`/srv/tommyq/config/wol.conf` on the router. The file needs the MAC of leo, one `name=MAC`
+per line (the same file the `wol` helper on tiger uses):
+
+```
+leo=aa:bb:cc:dd:ee:ff
+```
+
+Optional keys: `leo_ip`, `leo_broadcast`, `leo_alive_port`, `routing_ports`, `lan_cidr`
+(see the README, "Wake-on-LAN"). Without this file `wol.cgi` can't wake leo and the loading
+screen shown for leo services only waits.
+
+### 6. Assistant Service (Optional)
 Setup SmartHome assistant:
 
 ```bash
