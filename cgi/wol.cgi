@@ -73,7 +73,7 @@ DEFAULTS = {
     # On-demand services: subdomain -> what to start through Portainer.
     #   container:<name>  a stopped container inside an active stack
     #   stack:<name>      an inactive stack (Portainer removes its containers on stop)
-    "start_iventoy": "stack:pxe",          # iVentoy + its nginx front (tommyq-python stacks/pxe.yml)
+    "start_iventoy": "stack:pxe",          # iVentoy + its nginx front (tommyq-docker stacks/pxe.yml)
     "start_jdownloader": "container:jdownloader2",
     "start_filezilla": "container:filezilla",
     "portainer_conf": "/srv/tommyq/config/portainer.toml",

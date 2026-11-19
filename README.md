@@ -249,8 +249,8 @@ in the Portainer **stack environment**, not in compose text — see *Stack envir
 ### iVentoy (PXE)
 
 `https://iventoy.tommyq.cz` is the admin WebUI of iVentoy (network boot of the ISO collection on leo; the
-Portainer stack `pxe`, defined in [tommyq-python](https://github.com/tommyq86/tommyq-python)
-`system/stacks/pxe.yml` — full description in its README).
+Portainer stack `pxe`, defined in [tommyq-docker](https://github.com/tommyq86/tommyq-docker)
+`stacks/pxe.yml`; full description in the tommyq-python README).
 
 What the router does for it:
 - **Proxy to port 26001** (nginx `iventoy-web` in the stack), not 26000. The iVentoy web server only reads the
