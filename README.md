@@ -28,7 +28,7 @@ Configuration and scripts for Turris MOX router.
 │   ├── logo.png               # Dashboard header logo
 │   └── carbon.png             # Dashboard background
 ├── cgi/                       # Deployed to /srv/tommyq/cgi/ (served at https://tommyq.cz/cgi/)
-│   └── wol.cgi                # Wake-on-LAN for leo (loading screen + sport planner button), LAN-only
+│   └── wol.cgi                # Wake-on-LAN for leo + on-demand start of services via Portainer (loading screen + sport planner button), LAN-only
 ├── errors/
 │   └── status-503.html        # Loading screen for leo services (→ /srv/tommyq/errors/status-{500,502,503,504}.html)
 ├── scripts/                   # Deployed to /srv/tommyq/scripts/
@@ -82,7 +82,7 @@ Examples:
 ./deploy.sh lighttpd           # deploy lighttpd modules + configs
 ./deploy.sh scripts            # deploy scripts + cron jobs
 ./deploy.sh dashboard          # deploy web dashboard
-./deploy.sh cgi                # deploy dashboard CGI (wol.cgi) + wol.conf
+./deploy.sh cgi                # deploy dashboard CGI (wol.cgi) + wol.conf + portainer.toml
 ./deploy.sh system --host root@192.168.2.1
 ```
 
@@ -153,8 +153,16 @@ All services are available via HTTPS with Cloudflare Origin CA certificate:
 - `https://download.tommyq.cz` - Synology Download Station
 - `https://plex.tommyq.cz` - Media server
 - `https://dsm.tommyq.cz` - Synology DSM
-- `https://iventoy.tommyq.cz` - iVentoy (PXE boot, leo, port 26000)
+- `https://iventoy.tommyq.cz` - iVentoy (PXE boot, leo; WebUI via nginx sidecar on port 26001 → 26000; on demand)
 - `https://photos.tommyq.cz` - Synology Photos (leo, port 5080)
+
+### Dashboard (`www/index.html`)
+
+HollyArrs replaced the *arr stack for requests/library management, so the tiles of **Radarr, Sonarr, Lidarr, Seerr**
+and **Download Station** are *commented out* in `www/index.html` (HTML comments, marked `Nahrazeno HollyArrs` /
+`Download Station skryta`). To bring one back, delete its `<!--` / `-->` lines and `./deploy.sh dashboard`.
+Only the tiles are hidden — the lighttpd proxies (`radarr.`, `sonarr.`, `lidarr.`, `seerr.`, `download.`) still exist,
+so bookmarks keep working. Prowlarr stays (HollyArrs does not replace it). iVentoy is in *Management*, HollyArrs in *Media*.
 
 ## Wake-on-LAN (leo) and the loading screen
 
@@ -171,8 +179,11 @@ The page runs in the visitor's browser and:
   then reloads itself,
 - asks `/cgi/wol.cgi` whether leo is up; if it sleeps it **sends Wake-on-LAN** (repeated every
   45 s while leo stays down) — so it works the same from the dashboard, a bookmark or a typed URL,
-- shows the progress (💤 leo spí → leo běží → služba), and after 3 min with leo up but the
-  service silent says so (the service itself probably is not running on leo).
+- shows the progress (💤 leo spí → leo běží → služba),
+- once leo is up but the service stays silent, **asks the CGI to start the service** through Portainer
+  (`POST ?start=<subdomain>`, on-demand services only — see below), then keeps polling. If the service
+  still does not answer after 3 min it says so (for a service that is not on-demand: it is probably not
+  running on leo; for an on-demand one: the start did not help, check it in Portainer).
 
 Outside the LAN the CGI answers 403: the page then just keeps polling and never wakes anything.
 A sleeping leo is detected in ~3 s (`Host is unreachable`), so the loading screen appears quickly.
@@ -183,6 +194,45 @@ A sleeping leo is detected in ~3 s (`Host is unreachable`), so the loading scree
 |---|---|
 | `GET ?status` | `{"up", "leo", "routing", "ip"}` — `leo`: NAS alive (SSH port 22, up long before Docker); `routing`: BRouter + tile server accept connections (`routing_ports`, default `17777,12347`) |
 | `POST ?wake` | sends the magic packet, `{"sent": true}` |
+| `POST ?start=<svc>` | starts an on-demand service on leo via the Portainer API (like `docker_manager.py start` / `stack start`): `{"state": "started"\|"running"}`; `404` for anything not in the allowlist, `502` while Portainer is not up yet |
+
+### On-demand services (started by the loading screen)
+
+Some services are kept **stopped** to save resources on leo and are started only when somebody opens them.
+Flow: the visitor opens `https://<svc>.tommyq.cz` → the container is down, lighttpd answers 502/503 → the loading
+screen shows → leo is woken if needed → once leo is up the page calls `POST /cgi/wol.cgi?start=<svc>` → the CGI starts
+the service through the **Portainer API** (the same calls `docker_manager.py start` / `stack start` make) → the page
+keeps polling and reloads when the service answers.
+
+| Subdomain | What the CGI starts | Notes |
+|---|---|---|
+| `filezilla` | container `filezilla` (stack `download`) | |
+| `jdownloader` | container `jdownloader2` (stack `download`) | |
+| `iventoy` | **stack** `pxe` (iVentoy + its nginx front `iventoy-web`) | an inactive stack has no containers (Portainer removes them on stop), so the whole stack is started; PXE then starts by itself in ~3 s. **PXE boot only works while the stack is running**, i.e. after the UI has been opened. `docker_manager stack update/redeploy pxe` keep it stopped (`--start` to keep it running). Details: *iVentoy (PXE)* below |
+
+- **Allowlist:** `start_<subdomain>=container:<name>|stack:<name>` in `wol.conf` (the three above are built in).
+  Anything else answers `404` and the loading screen stops trying — so e.g. `radarr` can never be started this way.
+  `502` means Portainer is not up yet (leo has just booted); the page retries every 30 s.
+- **Idempotent:** an already running container / active stack answers `{"state": "running"}` and nothing is touched.
+- **Credentials:** the CGI logs in to Portainer with `/srv/tommyq/config/portainer.toml` (`[portainer]` url, username,
+  password, endpoint_id). `./deploy.sh cgi` copies it from `~/.tommyq/portainer.toml` — the same file `docker_manager.py`
+  uses — with mode `600` (lighttpd runs as root on the router). It is not in git. Anyone controlling the router can
+  therefore control Docker on leo; that is the same trust level as the SSH keys the router already has.
+- **Restart policy:** on-demand containers use `restart: unless-stopped`, which is what you want — a container
+  stopped by hand is *not* restarted after leo reboots, while the others come back by themselves.
+- **No automatic stop:** nothing stops these services when they are idle; stop them by hand
+  (`docker_manager.py stop filezilla`, `stack stop iventoy`) or add your own idle job. Do not add a service to the
+  allowlist unless it is safe for anyone on the LAN to start it.
+- **Stay stopped:** `filezilla` and `jdownloader2` are under the compose profile `on-demand` in the `download` stack, so
+  `stack update` / `stack redeploy` / `docker_manager update -a` never start them (`compose up` without profiles skips
+  them) — verified. Without the profile `compose up` started them a few seconds after every stack update. To refresh
+  their image use `docker_manager recreate <name> --pull` (compose does not update profiled services).
+- Adding another on-demand service: add `start_<subdomain>=…` to `wol.conf` (or the `DEFAULTS` in `cgi/wol.cgi`),
+  `./deploy.sh cgi`, and stop the container/stack. The loading screen already covers every `*.tommyq.cz` vhost.
+
+Secrets of the Docker stacks (Filezilla / qBittorrent passwords, Watchtower e-mail password, `MAPY_API_KEY`) are kept
+in the Portainer **stack environment**, not in compose text — see *Stack environment variables & secrets* in the
+[tommyq-python README](https://github.com/tommyq86/tommyq-python) (`docker_manager.py stack update -e`).
 
 - **LAN only** (`lan_cidr`, default `192.168.2.0/24`); other callers get 403. A POST also
   needs an `Origin` of `tommyq.cz` / `*.tommyq.cz`. CORS comes from TurrisOS' global
@@ -192,8 +242,29 @@ A sleeping leo is detected in ~3 s (`Host is unreachable`), so the loading scree
   with `tcpdump`), so leo would never receive it.
 - Config `/srv/tommyq/config/wol.conf` (from `~/.tommyq/wol.conf`, not in git): same
   `name=MAC` format as the `wol` helper on tiger — `leo=aa:bb:cc:dd:ee:ff`. Optional keys:
-  `leo_ip`, `leo_broadcast`, `leo_alive_port`, `routing_ports`, `lan_cidr`. Unknown keys are ignored.
+  `leo_ip`, `leo_broadcast`, `leo_alive_port`, `routing_ports`, `lan_cidr`, `start_<subdomain>`,
+  `portainer_conf` (path of the Portainer credentials file). Unknown keys are ignored.
 - The sport planner's "leo" button (layer control, admin only) calls this same CGI.
+
+### iVentoy (PXE)
+
+`https://iventoy.tommyq.cz` is the admin WebUI of iVentoy (network boot of the ISO collection on leo; the
+Portainer stack `pxe`, defined in [tommyq-python](https://github.com/tommyq86/tommyq-python)
+`system/stacks/pxe.yml` — full description in its README).
+
+What the router does for it:
+- **Proxy to port 26001** (nginx `iventoy-web` in the stack), not 26000. The iVentoy web server only reads the
+  first TCP segment of a request; lighttpd forwards an HTTP/2 POST body as a separate segment, so the WebUI's JSON
+  calls arrived without a body (empty values, UI switching to Chinese). nginx reassembles the request.
+- **`server.stream-request-body = 2`** in the vhost (`99-tommyq-20-tools.conf`): the WebUI ISO upload is one POST
+  of the whole ISO. Without streaming lighttpd buffers it in `server.upload-dirs` = `/tmp`, a ~240 MB tmpfs in RAM,
+  and the upload fails after a few percent (`write() temp-file /tmp/lighttpd-upload-… failed: No space left on
+  device` in `/var/log/lighttpd/error.log`). Verified with a 600 MB upload: ~19 MB/s, `/tmp` unchanged.
+  Any other vhost that takes large uploads needs the same setting.
+- **DHCP:** iVentoy runs as ProxyDHCP next to the router's DHCP server. The router must **not** send DHCP options
+  66/67 (`dhcp.lan.dhcp_option` is only `6,192.168.2.1`; the old `66,192.168.2.4` / `67,netboot.xyz.kpxe` were
+  removed). PXE clients get their IP from the router and the boot file from iVentoy, only while the stack runs.
+- **On demand:** the stack is stopped normally; the loading screen starts it (`?start=iventoy` → `stack:pxe`).
 
 ## CA Certificate
 

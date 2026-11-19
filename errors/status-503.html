@@ -11,6 +11,8 @@
    - asks /cgi/wol.cgi on tommyq.cz whether leo is up; if it sleeps, wakes it
      (LAN only — from outside the LAN the CGI answers 403 and we just keep polling);
    - after a few minutes with leo up but the service silent, says so.
+   - when leo is up but the service is silent, asks /cgi/wol.cgi?start=<subdomain> to start it
+     through Portainer (on-demand services only: iventoy, jdownloader, filezilla — others get 404).
 -->
 <html lang="cs">
 <head>
@@ -67,7 +69,19 @@
   document.title = label + ' – načítám…';
 
   var t0 = Date.now(), lastWake = 0;
+  var lastStart = 0, starting = false, noStart = false, startTried = false;
   var STALL_AFTER = 3 * 60 * 1000;      // leo up, service still silent → say so
+
+  // leo is up but the service is silent: ask the CGI to start it through Portainer.
+  // 404 = not an on-demand service (nothing to start), 502 = Portainer not ready yet → retry.
+  function startSvc() {
+    if (starting || noStart || Date.now() - lastStart < 30000) return;
+    starting = true; lastStart = Date.now();
+    wol('?start=' + encodeURIComponent(name), { method: 'POST', signal: AbortSignal.timeout(75000) })
+      .then(function (j) { if (j && j._status === 404) noStart = true; else if (j && j._status === 200) startTried = true; })
+      .catch(function () {})
+      .then(function () { starting = false; });
+  }
 
   function setStep(id, state, text) {
     var el = $(id);
@@ -92,7 +106,7 @@
     return fetch(WOL + query, Object.assign({ cache: 'no-store', signal: AbortSignal.timeout(8000) }, init || {}))
       .then(function (r) {
         if (r.status === 403) return { lan: false };
-        return r.json();
+        return r.json().then(function (j) { j._status = r.status; return j; });
       });
   }
 
@@ -110,11 +124,14 @@
             wol('?wake', { method: 'POST' }).catch(function () {});
           }
         } else if (s && s.leo) {
-          show('leo běží, čekám na službu…', 'done', 'active');
+          startSvc();
+          show(starting ? 'leo běží, spouštím službu…' : 'leo běží, čekám na službu…', 'done', 'active');
           if (waited > STALL_AFTER) {
             $('spin').classList.add('stalled'); $('bar').classList.add('stalled');
             $('hint').hidden = false; $('retry').hidden = false;
-            $('hint').textContent = 'Služba pořád neodpovídá — pravděpodobně na leo neběží. Zkusím to dál, ale může být potřeba ji spustit (Portainer).';
+            $('hint').textContent = startTried
+              ? 'Službu jsem zkusil spustit, ale pořád neodpovídá — zkontroluj ji v Portaineru.'
+              : 'Služba pořád neodpovídá — pravděpodobně na leo neběží. Zkusím to dál, ale může být potřeba ji spustit (Portainer).';
           }
         } else {
           show('Čekám na službu…', 'pending', 'active');

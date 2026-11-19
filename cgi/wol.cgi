@@ -12,6 +12,10 @@ Endpoints (deployed at https://tommyq.cz/cgi/wol.cgi):
                    routing: the routing stack (BRouter + tile server) accepts
                    connections on `routing_ports` — this is what the sport planner needs.
   POST ?wake     → sends a Wake-on-LAN magic packet, {"sent": true}
+  POST ?start=<svc>
+                 → starts an on-demand service on leo through the Portainer API (same
+                   calls docker_manager.py makes: container start / stack start).
+                   {"state": "running"|"started"}; 404 for services not in the allowlist.
 
 Used by the loading screen that lighttpd shows for leo-hosted services
 (errors/status-503.html) and by the sport planner's "leo" button.
@@ -34,6 +38,11 @@ in the same format as ~/.tommyq/wol.conf used by the `wol` helper on tiger:
   leo_alive_port=22         # default
   routing_ports=17777,12347 # default: BRouter, tile server (overpass is optional, left out)
   lan_cidr=192.168.2.0/24   # default; comma-separated list allowed
+  start_<svc>=container:<name> | stack:<name>
+                            # on-demand services (allowlist for ?start=<svc>, <svc> = the
+                            # subdomain). Defaults: iventoy, jdownloader, filezilla.
+  portainer_conf=/srv/tommyq/config/portainer.toml   # default; copy of ~/.tommyq/portainer.toml
+                            # ([portainer] url / username / password / endpoint_id)
 
 Unknown keys (e.g. `tiger=…`, `INTERFACE=…`) are ignored.
 """
@@ -44,7 +53,10 @@ import os
 import re
 import socket
 import sys
+import tomllib
+import urllib.error
 import urllib.parse
+import urllib.request
 
 CONF_FILE = os.environ.get("WOL_CONF", "/srv/tommyq/config/wol.conf")
 
@@ -58,8 +70,16 @@ DEFAULTS = {
     "leo_alive_port": "22",
     "routing_ports": "17777,12347",
     "lan_cidr": "192.168.2.0/24",
+    # On-demand services: subdomain -> what to start through Portainer.
+    #   container:<name>  a stopped container inside an active stack
+    #   stack:<name>      an inactive stack (Portainer removes its containers on stop)
+    "start_iventoy": "stack:pxe",          # iVentoy + its nginx front (tommyq-python stacks/pxe.yml)
+    "start_jdownloader": "container:jdownloader2",
+    "start_filezilla": "container:filezilla",
+    "portainer_conf": "/srv/tommyq/config/portainer.toml",
 }
 
+_SVC_RE = re.compile(r"^[a-z0-9-]{1,40}$")
 _MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")
 _ORIGIN_RE = re.compile(r"^https?://([a-z0-9-]+\.)*tommyq\.cz$", re.I)
 
@@ -127,6 +147,86 @@ def send_magic_packet(mac, broadcast):
         s.close()
 
 
+class PortainerError(Exception):
+    pass
+
+
+def portainer_request(base, path, method="GET", token=None, data=None, timeout=20):
+    """One Portainer API call. Returns (http_status, parsed_json_or_None).
+
+    HTTP error statuses are returned, not raised (Docker answers 304 for "already
+    started"); only network failures raise PortainerError.
+    """
+    req = urllib.request.Request(
+        base + path, method=method,
+        data=json.dumps(data).encode() if data is not None else None,
+        headers={"Content-Type": "application/json",
+                 **({"Authorization": f"Bearer {token}"} if token else {})})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body, status = resp.read(), resp.status
+    except urllib.error.HTTPError as e:
+        body, status = e.read(), e.code
+    except (urllib.error.URLError, OSError) as e:
+        raise PortainerError(f"Portainer unreachable: {getattr(e, 'reason', e)}")
+    try:
+        return status, json.loads(body) if body else None
+    except ValueError:
+        return status, None
+
+
+def start_service(conf, svc):
+    """Start the on-demand service `svc` via Portainer. Returns "running" or "started".
+
+    Mirrors docker_manager.py (`start <container>` / `stack start <stack>`); the
+    credentials come from the same portainer.toml format.
+    """
+    kind, _, name = conf["start_" + svc].partition(":")
+    try:
+        with open(conf["portainer_conf"], "rb") as f:
+            pcfg = tomllib.load(f)["portainer"]
+        base, eid = pcfg["url"].rstrip("/"), pcfg["endpoint_id"]
+        login = {"username": pcfg["username"], "password": pcfg["password"]}
+    except (OSError, KeyError, ValueError) as e:
+        raise PortainerError(f"portainer.toml unusable: {e.__class__.__name__}")
+
+    status, body = portainer_request(base, "/api/auth", "POST", data=login)
+    if status != 200 or not body or "jwt" not in body:
+        raise PortainerError(f"Portainer login failed (HTTP {status})")
+    token = body["jwt"]
+
+    if kind == "container":
+        status, containers = portainer_request(
+            base, f"/api/endpoints/{eid}/docker/containers/json?all=true", token=token)
+        found = next((c for c in containers or [] if f"/{name}" in c.get("Names", [])), None)
+        if status != 200 or not found:
+            raise PortainerError(f"container '{name}' not found")
+        if found.get("State") == "running":
+            return "running"
+        status, _ = portainer_request(
+            base, f"/api/endpoints/{eid}/docker/containers/{found['Id']}/start",
+            "POST", token=token, timeout=30)
+        if status not in (204, 304):
+            raise PortainerError(f"container start failed (HTTP {status})")
+        return "started"
+
+    if kind == "stack":
+        status, stacks = portainer_request(base, "/api/stacks", token=token)
+        found = next((s for s in stacks or [] if s.get("Name", "").lower() == name.lower()), None)
+        if status != 200 or not found:
+            raise PortainerError(f"stack '{name}' not found")
+        if found.get("Status") == 1:          # already active
+            return "running"
+        status, _ = portainer_request(
+            base, f"/api/stacks/{found['Id']}/start?endpointId={eid}",
+            "POST", token=token, timeout=60)
+        if status != 200:
+            raise PortainerError(f"stack start failed (HTTP {status})")
+        return "started"
+
+    raise PortainerError(f"bad start_{svc} setting")
+
+
 def main():
     origin = os.environ.get("HTTP_ORIGIN", "")
     method = os.environ.get("REQUEST_METHOD", "GET")
@@ -164,7 +264,22 @@ def main():
             respond("500 Internal Server Error", {"error": f"wake failed: {e}"}, origin)
         respond("200 OK", {"sent": True}, origin)
 
-    respond("400 Bad Request", {"error": "use ?status or POST ?wake"}, origin)
+    if "start" in params:
+        if method != "POST":
+            respond("405 Method Not Allowed", {"error": "use POST"}, origin)
+        if origin and not _ORIGIN_RE.match(origin):
+            respond("403 Forbidden", {"error": "bad origin"}, origin)
+        svc = params["start"][0].lower()
+        # Allowlist: only services that have a start_<svc> entry can be started.
+        if not _SVC_RE.match(svc) or ("start_" + svc) not in conf:
+            respond("404 Not Found", {"error": "unknown service"}, origin)
+        try:
+            state = start_service(conf, svc)
+        except PortainerError as e:
+            respond("502 Bad Gateway", {"error": str(e)}, origin)
+        respond("200 OK", {"state": state}, origin)
+
+    respond("400 Bad Request", {"error": "use ?status, POST ?wake or POST ?start=<svc>"}, origin)
 
 
 if __name__ == "__main__":

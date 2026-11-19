@@ -316,6 +316,16 @@ if has_component cgi; then
     else
         echo "  ! ~/.tommyq/wol.conf not found — wol.cgi can't wake leo until it is deployed"
     fi
+    # wol.cgi starts on-demand services (iventoy, jdownloader, filezilla) through the
+    # Portainer API, like docker_manager.py. It reuses ~/.tommyq/portainer.toml (holds
+    # Portainer credentials — kept out of git, root-only on the router; lighttpd runs as root).
+    if [ -f "$HOME/.tommyq/portainer.toml" ]; then
+        scp_to "$HOME/.tommyq/portainer.toml" "/srv/tommyq/config/portainer.toml"
+        ssh_exec "chmod 600 /srv/tommyq/config/portainer.toml"
+        echo "  portainer.toml"
+    else
+        echo "  ! ~/.tommyq/portainer.toml not found — wol.cgi can't start on-demand services until it is deployed"
+    fi
     echo "  ✓ CGI deployed"
     echo ""
 fi
