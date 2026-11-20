@@ -226,7 +226,7 @@ if has_component lighttpd; then
     # Disable conflicting Turris configs
     ssh_exec "cd /etc/lighttpd/conf.d && for f in 50-turris-auth.conf 80-*.conf; do [ -f \$f ] && [ ! -f \$f.disabled ] && mv \$f \$f.disabled; done || true"
 
-    # Loading screen for leo-hosted services (server.errorfile-prefix points here):
+    # Loading screen for NAS-hosted services (server.errorfile-prefix points here):
     # the same page answers 500, 502, 503 and 504.
     ensure_dir "/srv/tommyq/errors"
     scp_to "$SCRIPT_DIR/errors/status-503.html" "/srv/tommyq/errors/status-503.html"
@@ -307,14 +307,14 @@ if has_component cgi; then
         scp_to "$cgi" "/srv/tommyq/cgi/$filename"
         ssh_exec "chmod +x /srv/tommyq/cgi/$filename"
     done
-    # wol.cgi reads the MAC of leo from wol.conf — same `name=MAC` format as the
-    # `wol` helper on tiger. Kept out of git: deployed from ~/.tommyq/wol.conf.
+    # wol.cgi reads the MAC and address of the NAS (nas=, nas_ip=) from wol.conf — same
+    # `name=MAC` format as the `wol` helper. Kept out of git: deployed from ~/.tommyq/wol.conf.
     if [ -f "$HOME/.tommyq/wol.conf" ]; then
         scp_to "$HOME/.tommyq/wol.conf" "/srv/tommyq/config/wol.conf"
         ssh_exec "chmod 644 /srv/tommyq/config/wol.conf"
         echo "  wol.conf"
     else
-        echo "  ! ~/.tommyq/wol.conf not found — wol.cgi can't wake leo until it is deployed"
+        echo "  ! ~/.tommyq/wol.conf not found — wol.cgi can't wake the NAS until it is deployed"
     fi
     # wol.cgi starts on-demand services (iventoy, jdownloader, filezilla) through the
     # Portainer API, like docker_manager.py. It reuses ~/.tommyq/portainer.toml (holds
@@ -333,6 +333,13 @@ fi
 # --- SYSTEM ---
 if has_component system; then
     echo "▸ Deploying system configurations..."
+    # Site-specific files are not in git (see .gitignore): create them from the *.example files.
+    for f in kresd-custom.conf hosts dnsmasq-local-domains.conf; do
+        if [ ! -f "$SCRIPT_DIR/system/$f" ]; then
+            echo "  ✗ system/$f is missing (not in git) — copy system/$f.example to system/$f and edit it" >&2
+            exit 1
+        fi
+    done
     ensure_dir "/etc/updater/conf.d /etc/kresd"
 
     scp_to "$SCRIPT_DIR/system/no-foris.lua" "/etc/updater/conf.d/"

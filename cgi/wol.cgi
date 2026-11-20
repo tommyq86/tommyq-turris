@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-"""Wake-on-LAN for leo (the NAS) — backs the tommyq.cz dashboard.
+"""Wake-on-LAN for the NAS — backs the tommyq.cz dashboard.
 
-leo hosts most of the services on the dashboard (via lighttpd reverse proxies).
+The NAS hosts most of the services on the dashboard (via lighttpd reverse proxies).
 When it sleeps, clicking a service icon wakes it, waits until the service
 answers, and then opens it.
 
 Endpoints (deployed at https://tommyq.cz/cgi/wol.cgi):
-  GET  ?status   → {"up": bool, "leo": bool, "routing": bool, "ip": "…"}
-                   up == leo: the NAS answers on its alive port (default SSH 22), which
+  GET  ?status   → {"up": bool, "nas": bool, "routing": bool, "ip": "…", "label": "…"}
+                   up == nas: the NAS answers on its alive port (default SSH 22), which
                    comes up long before the Docker containers do.
                    routing: the routing stack (BRouter + tile server) accepts
                    connections on `routing_ports` — this is what the sport planner needs.
+                   label: display name of the NAS (`nas_label`, default "NAS").
   POST ?wake     → sends a Wake-on-LAN magic packet, {"sent": true}
   POST ?start=<svc>
-                 → starts an on-demand service on leo through the Portainer API (same
+                 → starts an on-demand service on the NAS through the Portainer API (same
                    calls docker_manager.py makes: container start / stack start).
                    {"state": "running"|"started"}; 404 for services not in the allowlist.
 
-Used by the loading screen that lighttpd shows for leo-hosted services
-(errors/status-503.html) and by the sport planner's "leo" button.
+Used by the loading screen that lighttpd shows for NAS-hosted services
+(errors/status-503.html) and by the sport planner's NAS wake button.
 
 Access: LAN only (REMOTE_ADDR must be inside `lan_cidr`). From anywhere else the
 CGI answers 403 and the dashboard falls back to a plain link. A POST also needs
@@ -30,12 +31,13 @@ simple GET/POST requests used by sport.tommyq.cz; a second header from the CGI
 would make browsers reject the response (duplicate ACAO).
 
 Config: /srv/tommyq/config/wol.conf (override with $WOL_CONF), `key=value` lines
-in the same format as ~/.tommyq/wol.conf used by the `wol` helper on tiger:
+in the same format as ~/.tommyq/wol.conf used by the `wol` helper:
 
-  leo=aa:bb:cc:dd:ee:ff     # required for ?wake (MAC of leo)
-  leo_ip=192.168.2.4        # default
-  leo_broadcast=192.168.2.255   # default; see send_magic_packet()
-  leo_alive_port=22         # default
+  nas=aa:bb:cc:dd:ee:ff     # required for ?wake (MAC of the NAS)
+  nas_ip=192.168.2.4        # required: address of the NAS
+  nas_label=NAS             # optional display name (status JSON `label`), default NAS
+  nas_broadcast=192.168.2.255   # default; see send_magic_packet()
+  nas_alive_port=22         # default
   routing_ports=17777,12347 # default: BRouter, tile server (overpass is optional, left out)
   lan_cidr=192.168.2.0/24   # default; comma-separated list allowed
   start_<svc>=container:<name> | stack:<name>
@@ -44,7 +46,7 @@ in the same format as ~/.tommyq/wol.conf used by the `wol` helper on tiger:
   portainer_conf=/srv/tommyq/config/portainer.toml   # default; copy of ~/.tommyq/portainer.toml
                             # ([portainer] url / username / password / endpoint_id)
 
-Unknown keys (e.g. `tiger=…`, `INTERFACE=…`) are ignored.
+Unknown keys (e.g. `desktop=…`, `INTERFACE=…`) are ignored.
 """
 
 import ipaddress
@@ -61,13 +63,12 @@ import urllib.request
 CONF_FILE = os.environ.get("WOL_CONF", "/srv/tommyq/config/wol.conf")
 
 DEFAULTS = {
-    "leo_ip": "192.168.2.4",
     # Subnet-directed broadcast of the LAN. NOT 255.255.255.255: on the router
     # that one follows the default route and leaves via the WAN port (verified
     # with tcpdump), so it never reaches the LAN. The directed broadcast leaves
-    # via br-lan. Also avoids leaking leo's MAC into the ISP's network.
-    "leo_broadcast": "192.168.2.255",
-    "leo_alive_port": "22",
+    # via br-lan. Also avoids leaking the NAS's MAC into the ISP's network.
+    "nas_broadcast": "192.168.2.255",
+    "nas_alive_port": "22",
     "routing_ports": "17777,12347",
     "lan_cidr": "192.168.2.0/24",
     # On-demand services: subdomain -> what to start through Portainer.
@@ -238,9 +239,11 @@ def main():
         respond("403 Forbidden", {"error": "LAN only"}, origin)
 
     params = urllib.parse.parse_qs(os.environ.get("QUERY_STRING", ""), keep_blank_values=True)
-    ip = conf["leo_ip"]
+    ip = conf.get("nas_ip", "")
+    if not ip:
+        respond("500 Internal Server Error", {"error": "nas_ip not configured (wol.conf)"}, origin)
     try:
-        alive_port = int(conf["leo_alive_port"])
+        alive_port = int(conf["nas_alive_port"])
     except ValueError:
         alive_port = 22
 
@@ -248,18 +251,19 @@ def main():
         up = tcp_open(ip, alive_port)
         ports = [int(p) for p in conf.get("routing_ports", "").split(",") if p.strip().isdigit()]
         routing = bool(up and ports and all(tcp_open(ip, p, 1.0) for p in ports))
-        respond("200 OK", {"up": up, "leo": up, "routing": routing, "ip": ip}, origin)
+        respond("200 OK", {"up": up, "nas": up, "routing": routing, "ip": ip,
+                           "label": conf.get("nas_label") or "NAS"}, origin)
 
     if "wake" in params:
         if method != "POST":
             respond("405 Method Not Allowed", {"error": "use POST"}, origin)
         if origin and not _ORIGIN_RE.match(origin):
             respond("403 Forbidden", {"error": "bad origin"}, origin)
-        mac = conf.get("leo", "")
+        mac = conf.get("nas", "")
         if not _MAC_RE.match(mac):
-            respond("500 Internal Server Error", {"error": "leo MAC not configured (wol.conf)"}, origin)
+            respond("500 Internal Server Error", {"error": "nas MAC not configured (wol.conf)"}, origin)
         try:
-            send_magic_packet(mac, conf["leo_broadcast"])
+            send_magic_packet(mac, conf["nas_broadcast"])
         except OSError as e:
             respond("500 Internal Server Error", {"error": f"wake failed: {e}"}, origin)
         respond("200 OK", {"sent": True}, origin)

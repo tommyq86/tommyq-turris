@@ -3,3 +3,8 @@
 *~
 .directory
 .aider*
+
+# Site-specific configuration (copy the *.example files and edit)
+system/hosts
+system/kresd-custom.conf
+system/dnsmasq-local-domains.conf

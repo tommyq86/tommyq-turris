@@ -42,14 +42,18 @@ Configuration and scripts for Turris MOX router.
 │   ├── safe-reboot.sh                # Safe reboot (clear updater flags)
 │   └── kresd-watchdog.sh             # Monitoring and restart kresd on failure
 ├── system/
-│   ├── kresd-custom.conf      # Knot Resolver - local domain overrides
-│   ├── dnsmasq-local-domains.conf  # Dnsmasq local domain resolution
-│   ├── hosts                  # Custom hosts file
+│   ├── kresd-custom.conf.example   # Knot Resolver - local domain overrides (copy to kresd-custom.conf, git-ignored)
+│   ├── dnsmasq-local-domains.conf.example  # Dnsmasq local domain resolution (copy, git-ignored)
+│   ├── hosts.example          # Custom hosts file (copy to hosts, git-ignored)
 │   ├── dnsmasq.conf.example   # DNS configuration (legacy reference)
 │   └── no-foris.lua           # Updater config - disable Foris web interface
 └── docs/
     └── setup.md               # Setup documentation
 ```
+
+**Site-specific files** (`system/hosts`, `system/kresd-custom.conf`, `system/dnsmasq-local-domains.conf`) are not in git: copy the
+`*.example` files, edit them (machine names, addresses, domain) and `deploy.sh system` installs them. The deploy aborts with a
+hint when one of them is missing.
 
 **Note:** The sport service (`sport.tommyq.cz` — activity, planner, garage) lives entirely in the
 [tommyq-sport](https://github.com/tommyq86/tommyq-sport) repository, including its lighttpd config
@@ -179,7 +183,7 @@ The page runs in the visitor's browser and:
   then reloads itself,
 - asks `/cgi/wol.cgi` whether the NAS is up; if it sleeps it **sends Wake-on-LAN** (repeated every
   45 s while the NAS stays down) — so it works the same from the dashboard, a bookmark or a typed URL,
-- shows the progress (💤 NAS sleeping → NAS up → service; the page itself shows these in Czech, e.g. "leo spí" — `leo` is the NAS),
+- shows the progress (💤 NAS sleeping → NAS up → service; the page shows these in Czech, using the NAS display name from `nas_label`, default "NAS"),
 - once the NAS is up but the service stays silent, **asks the CGI to start the service** through Portainer
   (`POST ?start=<subdomain>`, on-demand services only — see below), then keeps polling. If the service
   still does not answer after 3 min it says so (for a service that is not on-demand: it is probably not
@@ -192,7 +196,7 @@ A sleeping NAS is detected in ~3 s (`Host is unreachable`), so the loading scree
 
 | Request | Result |
 |---|---|
-| `GET ?status` | `{"up", "leo", "routing", "ip"}` — `leo` (the NAS): alive (SSH port 22, up long before Docker); `routing`: BRouter + tile server accept connections (`routing_ports`, default `17777,12347`) |
+| `GET ?status` | `{"up", "nas", "routing", "ip", "label"}` — `nas`: the NAS is alive (SSH port 22, up long before Docker); `label`: its display name (`nas_label`, default "NAS"); `routing`: BRouter + tile server accept connections (`routing_ports`, default `17777,12347`) |
 | `POST ?wake` | sends the magic packet, `{"sent": true}` |
 | `POST ?start=<svc>` | starts an on-demand service on the NAS via the Portainer API (like `docker_manager.py start` / `stack start`): `{"state": "started"\|"running"}`; `404` for anything not in the allowlist, `502` while Portainer is not up yet |
 
@@ -241,10 +245,11 @@ in the Portainer **stack environment**, not in compose text — see *Stack envir
   the router the latter follows the default route and leaves via the WAN port (verified
   with `tcpdump`), so the NAS would never receive it.
 - Config `/srv/tommyq/config/wol.conf` (from `~/.tommyq/wol.conf`, not in git): same
-  `name=MAC` format as the `wol` helper on the desktop — `leo=aa:bb:cc:dd:ee:ff` (the NAS). Optional keys:
-  `leo_ip`, `leo_broadcast`, `leo_alive_port`, `routing_ports`, `lan_cidr`, `start_<subdomain>`,
+  `name=MAC` format as the `wol` helper on the desktop — `nas=aa:bb:cc:dd:ee:ff` (the NAS) and
+  `nas_ip=<address>` are required; the MAC is used for `?wake`, the address for the status check.
+  Optional keys: `nas_label`, `nas_broadcast`, `nas_alive_port`, `routing_ports`, `lan_cidr`, `start_<subdomain>`,
   `portainer_conf` (path of the Portainer credentials file). Unknown keys are ignored.
-- The sport planner's "leo" button (the NAS; layer control, admin only) calls this same CGI.
+- The sport planner's NAS wake button (layer control, admin only) calls this same CGI.
 
 ### iVentoy (PXE)
 

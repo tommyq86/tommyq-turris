@@ -1,0 +1,43 @@
+-- Copy to `kresd-custom.conf` (git-ignored) and edit; `deploy.sh system` installs it as
+-- /etc/kresd/custom.conf.
+
+-- Limit cache to 50 MB
+cache.size = 50 * MB
+
+-- Load the policy module
+modules.load('policy')
+
+-- Override example.com and *.example.com with the router address (split-horizon).
+-- A -> router address. AAAA is answered as plain NODATA (nodata=true), NOT an empty
+-- table: that produced SERVFAIL, which made IPv6-capable clients (Windows, Android)
+-- fall back to the public IPv6 address, so LAN access then looked like an outside
+-- request (REMOTE_ADDR = CDN, not the LAN address). NODATA forces them to use A.
+policy.add(policy.suffix(
+    policy.ANSWER(
+        { [kres.type.A] = { rdata = kres.str2ip('192.168.1.1'), ttl = 300 } },
+        true  -- nodata: answer other types (incl. AAAA) with NODATA, not SERVFAIL
+    ),
+    { todname('example.com') }
+))
+
+-- Static machines hard-wired in Kresd (not affected by DHCP or Turris scripts).
+-- One block per machine: address + short name + .lan name.
+policy.add(policy.suffix(
+    policy.ANSWER({ [kres.type.A] = { rdata = kres.str2ip('192.168.1.1'), ttl = 300 } }),
+    { todname('router'), todname('router.lan') }
+))
+
+policy.add(policy.suffix(
+    policy.ANSWER({ [kres.type.A] = { rdata = kres.str2ip('192.168.1.2'), ttl = 300 } }),
+    { todname('desktop'), todname('desktop.lan') }
+))
+
+policy.add(policy.suffix(
+    policy.ANSWER({ [kres.type.A] = { rdata = kres.str2ip('192.168.1.3'), ttl = 300 } }),
+    { todname('desktop-win'), todname('desktop-win.lan') }
+))
+
+policy.add(policy.suffix(
+    policy.ANSWER({ [kres.type.A] = { rdata = kres.str2ip('192.168.1.4'), ttl = 300 } }),
+    { todname('nas'), todname('nas.lan') }
+))
