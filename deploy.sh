@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy Turris configuration and scripts
 # Usage: deploy.sh [components...] [--host HOST]
-# Components: lighttpd, scripts, dashboard, cgi, system, all (default)
+# Components: lighttpd, scripts, dashboard, cgi, system, all (default), nas (explicit only)
 #
 # Note: sport service (activity + brouter + garage) is deployed separately
 # from tommyq-sport — run `~/Systém/tommyq-sport/deploy.sh`.
@@ -33,6 +33,21 @@ scp_dir_to() {
 
 ensure_dir() {
     ssh_exec "mkdir -p $1"
+}
+
+# Host name of the NAS: $NAS_HOST, else role "nas" in [hosts] of ~/.tommyq/config.toml
+# (TOMMYQ_CONFIG overrides the file), else nas.local. No machine name lives in the repo.
+nas_host() {
+    if [[ -n "${NAS_HOST:-}" ]]; then echo "$NAS_HOST"; return; fi
+    python3 - <<'PY' 2>/dev/null || echo "nas.local"
+import os, tomllib
+path = os.path.expanduser(os.environ.get("TOMMYQ_CONFIG", "~/.tommyq/config.toml"))
+try:
+    with open(path, "rb") as f:
+        print(tomllib.load(f).get("hosts", {}).get("nas") or "nas.local")
+except OSError:
+    print("nas.local")
+PY
 }
 
 install_python_module_if_missing() {
@@ -127,7 +142,8 @@ Komponenty:
     dashboard   Webový dashboard (/www/tommyq/)
     cgi         CGI pro dashboard (/srv/tommyq/cgi/, wol.cgi + wol.conf)
     system      DNS, kresd, dnsmasq, hosts, CA certifikát
-    all         Vše (výchozí, pokud není zadána žádná komponenta)
+    nas         Trigger skript zálohy na NAS (~/Scripts/, jen na výslovné zadání; NAS_HOST přepíše roli nas)
+    all         Vše kromě nas (výchozí, pokud není zadána žádná komponenta)
 
 Volby:
     --host HOST   SSH host (výchozí: root@turris)
@@ -154,7 +170,8 @@ Components:
     dashboard   Web dashboard (/www/tommyq/)
     cgi         Dashboard CGI (/srv/tommyq/cgi/, wol.cgi + wol.conf)
     system      DNS, kresd, dnsmasq, hosts, CA certificate
-    all         Everything (default if no component specified)
+    nas         Backup trigger script on the NAS (~/Scripts/, only when named; NAS_HOST overrides role nas)
+    all         Everything except nas (default if no component specified)
 
 Options:
     --host HOST   SSH host (default: root@turris)
@@ -175,7 +192,7 @@ EOF
             TURRIS_HOST="$2"
             shift 2
             ;;
-        lighttpd|scripts|dashboard|cgi|system|all)
+        lighttpd|scripts|dashboard|cgi|system|nas|all)
             COMPONENTS+=("$1")
             shift
             ;;
@@ -267,11 +284,18 @@ if has_component scripts; then
         if [ "$filename" = "srv-mount-check.sh" ]; then
             continue
         fi
+        # The backup trigger runs on the NAS (component `nas`), not on the router
+        if [ "$filename" = "nas-trigger-turris-backup.sh" ]; then
+            continue
+        fi
 
         echo "  $filename"
         scp_to "$script" "/srv/tommyq/scripts/"
         ssh_exec "chmod +x /srv/tommyq/scripts/$filename"
     done
+
+    # Stale copies of the NAS-only trigger script (old name + new name) do not belong on the router
+    ssh_exec "rm -f /srv/tommyq/scripts/leo-trigger-turris-backup.sh /srv/tommyq/scripts/nas-trigger-turris-backup.sh"
 
     # Memory monitor
     echo "  memory-monitor.sh -> /usr/local/bin/"
@@ -342,6 +366,19 @@ if has_component cgi; then
     fi
     echo "  ✓ CGI deployed"
     echo ""
+fi
+
+# --- NAS (backup trigger script; run by the NAS Task Scheduler, not on the router) ---
+if has_component nas; then
+    NAS_DEPLOY_HOST="$(nas_host)"
+    NAS_SCRIPTS_DIR="${NAS_SCRIPTS_DIR:-Scripts}"    # relative to the NAS user's home
+    echo "▸ Deploying NAS trigger script to $NAS_DEPLOY_HOST:$NAS_SCRIPTS_DIR ..."
+    ssh "$NAS_DEPLOY_HOST" "mkdir -p '$NAS_SCRIPTS_DIR'"
+    # Synology: the SFTP subsystem is unusable for scp, use the legacy protocol (-O)
+    scp -O "$SCRIPT_DIR/scripts/nas-trigger-turris-backup.sh" "$NAS_DEPLOY_HOST:$NAS_SCRIPTS_DIR/nas-trigger-turris-backup.sh"
+    ssh "$NAS_DEPLOY_HOST" "chmod +x '$NAS_SCRIPTS_DIR/nas-trigger-turris-backup.sh'"
+    echo "  ✓ $NAS_SCRIPTS_DIR/nas-trigger-turris-backup.sh"
+    echo "    Point the NAS Task Scheduler task at it. A previous leo-trigger-turris-backup.sh copy is left untouched."
 fi
 
 # --- SYSTEM ---
