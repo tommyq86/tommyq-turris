@@ -119,7 +119,7 @@ lighttpd modules (`auth`, `cgi`, `authn_pam`, `proxy`, `setenv`, …), the base 
 
 Reverse proxy routes requests to Docker containers running on leo (Synology NAS). Notable containers:
 
-- **BRouter** (`ghcr.io/abrensch/brouter`, port 17777) — offline routing engine for cycling. OSM segmenty pro střední Evropu, profily: gravel, trekking, fastbike. API proxy přes lighttpd na `tommyq.cz/brouter`.
+- **BRouter** (`ghcr.io/abrensch/brouter`, port 17777) — offline routing engine for cycling. OSM segments for Central Europe, profiles: gravel, trekking, fastbike. API proxied through lighttpd at `tommyq.cz/brouter`.
 
 ## Related Repositories
 
@@ -179,7 +179,7 @@ The page runs in the visitor's browser and:
   then reloads itself,
 - asks `/cgi/wol.cgi` whether leo is up; if it sleeps it **sends Wake-on-LAN** (repeated every
   45 s while leo stays down) — so it works the same from the dashboard, a bookmark or a typed URL,
-- shows the progress (💤 leo spí → leo běží → služba),
+- shows the progress (💤 leo sleeping → leo up → service; the page itself shows these in Czech, e.g. "leo spí"),
 - once leo is up but the service stays silent, **asks the CGI to start the service** through Portainer
   (`POST ?start=<subdomain>`, on-demand services only — see below), then keeps polling. If the service
   still does not answer after 3 min it says so (for a service that is not on-demand: it is probably not
