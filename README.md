@@ -10,7 +10,7 @@ Configuration and scripts for Turris MOX router.
 - [System Configuration](system/)
 - [Web Dashboard](www/)
 - [Dashboard CGI (Wake-on-LAN)](cgi/)
-- [Loading screen for leo services](errors/)
+- [Loading screen for NAS services](errors/)
 
 ## Structure
 
@@ -19,7 +19,7 @@ Configuration and scripts for Turris MOX router.
 ├── lighttpd/
 │   ├── configs/
 │   │   ├── 49-tommyq-no-auth.conf          # Disable Turris auth for tommyq.cz
-│   │   ├── 99-tommyq-00-base.conf          # Base domain, HTTP redirect, SmartHome proxy, sport redirects, /cgi/ alias, loading screen for leo services
+│   │   ├── 99-tommyq-00-base.conf          # Base domain, HTTP redirect, SmartHome proxy, sport redirects, /cgi/ alias, loading screen for NAS services
 │   │   ├── 99-tommyq-10-media.conf         # Media Services (Plex, Seerr, *arr, Calibre-Web, Audiobookshelf)
 │   │   └── 99-tommyq-20-tools.conf         # Tools & Downloading (DSM, qBit, etc.)
 │   └── deploy-lighttpd.sh              # Lighttpd-only deployment
@@ -28,12 +28,12 @@ Configuration and scripts for Turris MOX router.
 │   ├── logo.png               # Dashboard header logo
 │   └── carbon.png             # Dashboard background
 ├── cgi/                       # Deployed to /srv/tommyq/cgi/ (served at https://tommyq.cz/cgi/)
-│   └── wol.cgi                # Wake-on-LAN for leo + on-demand start of services via Portainer (loading screen + sport planner button), LAN-only
+│   └── wol.cgi                # Wake-on-LAN for the NAS + on-demand start of services via Portainer (loading screen + sport planner button), LAN-only
 ├── errors/
-│   └── status-503.html        # Loading screen for leo services (→ /srv/tommyq/errors/status-{500,502,503,504}.html)
+│   └── status-503.html        # Loading screen for NAS services (→ /srv/tommyq/errors/status-{500,502,503,504}.html)
 ├── scripts/                   # Deployed to /srv/tommyq/scripts/
 │   ├── turris-backup.sh              # Backup Turris to Synology NAS
-│   ├── leo-trigger-turris-backup.sh  # Trigger backup from Leo
+│   ├── nas-trigger-turris-backup.sh  # Trigger backup from the NAS
 │   ├── turris-mem-monitor.sh         # Memory monitoring (RAM/SWAP)
 │   ├── turris-new-device-alert.sh    # New device notification
 │   ├── srv-mount-check.sh            # Alert if /srv drops off its USB flash drive (→ SD fallback)
@@ -67,7 +67,7 @@ This repo only installs the lighttpd modules the sport config relies on (via `de
 ```
 
 Components:
-- `lighttpd` — modules (auto-installed via opkg), configs, reverse proxy, loading screen for leo services
+- `lighttpd` — modules (auto-installed via opkg), configs, reverse proxy, loading screen for NAS services
   (`errors/` → `/srv/tommyq/errors/`); restarts lighttpd
 - `scripts` — shell scripts to `/srv/tommyq/scripts/` (+ memory monitor, kresd-watchdog, new-device-alert, srv-mount-check cron)
 - `dashboard` — web dashboard (`/www/tommyq/`)
@@ -115,9 +115,9 @@ lighttpd modules (`auth`, `cgi`, `authn_pam`, `proxy`, `setenv`, …), the base 
 (`var.nas_ip`, HTTP→HTTPS, `sport.tommyq.cz` routing) and DNS. Install/refresh them with
 `./deploy.sh lighttpd`.
 
-## Docker on Leo
+## Docker on the NAS
 
-Reverse proxy routes requests to Docker containers running on leo (Synology NAS). Notable containers:
+Reverse proxy routes requests to Docker containers running on the NAS (Synology). Notable containers:
 
 - **BRouter** (`ghcr.io/abrensch/brouter`, port 17777) — offline routing engine for cycling. OSM segments for Central Europe, profiles: gravel, trekking, fastbike. API proxied through lighttpd at `tommyq.cz/brouter`.
 
@@ -134,7 +134,7 @@ All services are available via HTTPS with Cloudflare Origin CA certificate:
 
 - `https://tommyq.cz` - Services dashboard
 - `https://sport.tommyq.cz/activity/` - Sport activities (token required)
-- `https://sport.tommyq.cz/planner/` - Gravel route planner (BRouter routing API proxy na leo:17777)
+- `https://sport.tommyq.cz/planner/` - Gravel route planner (BRouter routing API proxy na <nas>:17777)
 - `https://sport.tommyq.cz/garage/` - Bike garage
 - `https://portainer.tommyq.cz` - Docker management
 - `https://actual.tommyq.cz` - Accounting
@@ -144,7 +144,7 @@ All services are available via HTTPS with Cloudflare Origin CA certificate:
 - `https://lidarr.tommyq.cz` - Music
 - `https://seerr.tommyq.cz` - Media requests
 - `https://prowlarr.tommyq.cz` - Indexer management
-- `https://holyarrs.tommyq.cz` - HollyArrs (leo, port 6262)
+- `https://holyarrs.tommyq.cz` - HollyArrs (the NAS, port 6262)
 - `https://calibre.tommyq.cz` - Calibre-Web (e-knihy, port 8083)
 - `https://audiobookshelf.tommyq.cz` - Audiobookshelf (audioknihy, port 13378)
 - `https://filezilla.tommyq.cz` - FTP client (KasmVNC)
@@ -153,8 +153,8 @@ All services are available via HTTPS with Cloudflare Origin CA certificate:
 - `https://download.tommyq.cz` - Synology Download Station
 - `https://plex.tommyq.cz` - Media server
 - `https://dsm.tommyq.cz` - Synology DSM
-- `https://iventoy.tommyq.cz` - iVentoy (PXE boot, leo; WebUI via nginx sidecar on port 26001 → 26000; on demand)
-- `https://photos.tommyq.cz` - Synology Photos (leo, port 5080)
+- `https://iventoy.tommyq.cz` - iVentoy (PXE boot, on the NAS; WebUI via nginx sidecar on port 26001 → 26000; on demand)
+- `https://photos.tommyq.cz` - Synology Photos (the NAS, port 5080)
 
 ### Dashboard (`www/index.html`)
 
@@ -164,43 +164,43 @@ and **Download Station** are *commented out* in `www/index.html` (HTML comments,
 Only the tiles are hidden — the lighttpd proxies (`radarr.`, `sonarr.`, `lidarr.`, `seerr.`, `download.`) still exist,
 so bookmarks keep working. Prowlarr stays (HollyArrs does not replace it). iVentoy is in *Management*, HollyArrs in *Media*.
 
-## Wake-on-LAN (leo) and the loading screen
+## Wake-on-LAN (the NAS) and the loading screen
 
-Almost every service runs on **leo** (the NAS), which sleeps when idle. Instead of a bare
+Almost every service runs on **the NAS**, which sleeps when idle. Instead of a bare
 `503` the service shows a **loading screen** (`errors/status-503.html`, deployed to
 `/srv/tommyq/errors/` as `status-500/502/503/504.html`; lighttpd `server.errorfile-prefix` in
 `99-tommyq-00-base.conf`). It applies to every `*.tommyq.cz` vhost except `sport` (its CGI/tile/
 BRouter errors must stay plain for API clients) and `plex` (has its own fallback to app.plex.tv),
-so new leo services are covered automatically.
+so new NAS services are covered automatically.
 
 The page runs in the visitor's browser and:
 - polls its own URL until the service stops answering 500/502/503/504 (500 too: while a
   container starts, lighttpd answers 500 when the backend accepts the connection and drops it),
   then reloads itself,
-- asks `/cgi/wol.cgi` whether leo is up; if it sleeps it **sends Wake-on-LAN** (repeated every
-  45 s while leo stays down) — so it works the same from the dashboard, a bookmark or a typed URL,
-- shows the progress (💤 leo sleeping → leo up → service; the page itself shows these in Czech, e.g. "leo spí"),
-- once leo is up but the service stays silent, **asks the CGI to start the service** through Portainer
+- asks `/cgi/wol.cgi` whether the NAS is up; if it sleeps it **sends Wake-on-LAN** (repeated every
+  45 s while the NAS stays down) — so it works the same from the dashboard, a bookmark or a typed URL,
+- shows the progress (💤 NAS sleeping → NAS up → service; the page itself shows these in Czech, e.g. "leo spí" — `leo` is the NAS),
+- once the NAS is up but the service stays silent, **asks the CGI to start the service** through Portainer
   (`POST ?start=<subdomain>`, on-demand services only — see below), then keeps polling. If the service
   still does not answer after 3 min it says so (for a service that is not on-demand: it is probably not
-  running on leo; for an on-demand one: the start did not help, check it in Portainer).
+  running on the NAS; for an on-demand one: the start did not help, check it in Portainer).
 
 Outside the LAN the CGI answers 403: the page then just keeps polling and never wakes anything.
-A sleeping leo is detected in ~3 s (`Host is unreachable`), so the loading screen appears quickly.
+A sleeping NAS is detected in ~3 s (`Host is unreachable`), so the loading screen appears quickly.
 
 `cgi/wol.cgi` (Python, no root, no `etherwake`):
 
 | Request | Result |
 |---|---|
-| `GET ?status` | `{"up", "leo", "routing", "ip"}` — `leo`: NAS alive (SSH port 22, up long before Docker); `routing`: BRouter + tile server accept connections (`routing_ports`, default `17777,12347`) |
+| `GET ?status` | `{"up", "leo", "routing", "ip"}` — `leo` (the NAS): alive (SSH port 22, up long before Docker); `routing`: BRouter + tile server accept connections (`routing_ports`, default `17777,12347`) |
 | `POST ?wake` | sends the magic packet, `{"sent": true}` |
-| `POST ?start=<svc>` | starts an on-demand service on leo via the Portainer API (like `docker_manager.py start` / `stack start`): `{"state": "started"\|"running"}`; `404` for anything not in the allowlist, `502` while Portainer is not up yet |
+| `POST ?start=<svc>` | starts an on-demand service on the NAS via the Portainer API (like `docker_manager.py start` / `stack start`): `{"state": "started"\|"running"}`; `404` for anything not in the allowlist, `502` while Portainer is not up yet |
 
 ### On-demand services (started by the loading screen)
 
-Some services are kept **stopped** to save resources on leo and are started only when somebody opens them.
+Some services are kept **stopped** to save resources on the NAS and are started only when somebody opens them.
 Flow: the visitor opens `https://<svc>.tommyq.cz` → the container is down, lighttpd answers 502/503 → the loading
-screen shows → leo is woken if needed → once leo is up the page calls `POST /cgi/wol.cgi?start=<svc>` → the CGI starts
+screen shows → the NAS is woken if needed → once the NAS is up the page calls `POST /cgi/wol.cgi?start=<svc>` → the CGI starts
 the service through the **Portainer API** (the same calls `docker_manager.py start` / `stack start` make) → the page
 keeps polling and reloads when the service answers.
 
@@ -212,14 +212,14 @@ keeps polling and reloads when the service answers.
 
 - **Allowlist:** `start_<subdomain>=container:<name>|stack:<name>` in `wol.conf` (the three above are built in).
   Anything else answers `404` and the loading screen stops trying — so e.g. `radarr` can never be started this way.
-  `502` means Portainer is not up yet (leo has just booted); the page retries every 30 s.
+  `502` means Portainer is not up yet (the NAS has just booted); the page retries every 30 s.
 - **Idempotent:** an already running container / active stack answers `{"state": "running"}` and nothing is touched.
 - **Credentials:** the CGI logs in to Portainer with `/srv/tommyq/config/portainer.toml` (`[portainer]` url, username,
   password, endpoint_id). `./deploy.sh cgi` copies it from `~/.tommyq/portainer.toml` — the same file `docker_manager.py`
   uses — with mode `600` (lighttpd runs as root on the router). It is not in git. Anyone controlling the router can
-  therefore control Docker on leo; that is the same trust level as the SSH keys the router already has.
+  therefore control Docker on the NAS; that is the same trust level as the SSH keys the router already has.
 - **Restart policy:** on-demand containers use `restart: unless-stopped`, which is what you want — a container
-  stopped by hand is *not* restarted after leo reboots, while the others come back by themselves.
+  stopped by hand is *not* restarted after the NAS reboots, while the others come back by themselves.
 - **No automatic stop:** nothing stops these services when they are idle; stop them by hand
   (`docker_manager.py stop filezilla`, `stack stop iventoy`) or add your own idle job. Do not add a service to the
   allowlist unless it is safe for anyone on the LAN to start it.
@@ -239,16 +239,16 @@ in the Portainer **stack environment**, not in compose text — see *Stack envir
   `Access-Control-Allow-Origin: *` (the CGI adds none — a second header would break it).
 - The packet goes to the **directed broadcast** `192.168.2.255`, not `255.255.255.255`: on
   the router the latter follows the default route and leaves via the WAN port (verified
-  with `tcpdump`), so leo would never receive it.
+  with `tcpdump`), so the NAS would never receive it.
 - Config `/srv/tommyq/config/wol.conf` (from `~/.tommyq/wol.conf`, not in git): same
-  `name=MAC` format as the `wol` helper on tiger — `leo=aa:bb:cc:dd:ee:ff`. Optional keys:
+  `name=MAC` format as the `wol` helper on the desktop — `leo=aa:bb:cc:dd:ee:ff` (the NAS). Optional keys:
   `leo_ip`, `leo_broadcast`, `leo_alive_port`, `routing_ports`, `lan_cidr`, `start_<subdomain>`,
   `portainer_conf` (path of the Portainer credentials file). Unknown keys are ignored.
-- The sport planner's "leo" button (layer control, admin only) calls this same CGI.
+- The sport planner's "leo" button (the NAS; layer control, admin only) calls this same CGI.
 
 ### iVentoy (PXE)
 
-`https://iventoy.tommyq.cz` is the admin WebUI of iVentoy (network boot of the ISO collection on leo; the
+`https://iventoy.tommyq.cz` is the admin WebUI of iVentoy (network boot of the ISO collection on the NAS; the
 Portainer stack `pxe`, defined in [tommyq-docker](https://github.com/tommyq86/tommyq-docker)
 `stacks/pxe.yml`; full description in the tommyq-python README).
 
@@ -358,8 +358,8 @@ cd ~/Systém/tommyq-turris && ./deploy.sh
 # On Turris
 /srv/tommyq/scripts/turris-backup.sh
 
-# Trigger from Leo (cron)
-~/Systém/tommyq-turris/scripts/leo-trigger-turris-backup.sh
+# Trigger from the NAS (cron)
+~/Systém/tommyq-turris/scripts/nas-trigger-turris-backup.sh
 ```
 
 ### Memory Monitoring

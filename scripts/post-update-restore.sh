@@ -54,7 +54,7 @@ for conf in 99-ca-cert.conf 99-tommyq-services.conf 99-tommyq-jdownloader.conf 9
 done
 
 if [ $MISSING -eq 1 ]; then
-    echo -e "\n⚠ Some configs missing. Run from Leo:"
+    echo -e "\n⚠ Some configs missing. Run from the NAS:"
     echo "  cd ~/Systém/tommyq-turris && ./deploy.sh"
 else
     echo "  ✓ All configs present"
@@ -63,7 +63,7 @@ fi
 # Check scripts
 echo -e "\n3. Checking scripts..."
 if [ ! -d "/root/scripts" ]; then
-    echo "  ⚠ /root/scripts/ missing. Run from Leo:"
+    echo "  ⚠ /root/scripts/ missing. Run from the NAS:"
     echo "  cd ~/Systém/tommyq-turris && ./deploy.sh"
 else
     echo "  ✓ Scripts directory exists"

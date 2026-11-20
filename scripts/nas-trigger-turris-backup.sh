@@ -4,7 +4,7 @@
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
     if [[ "$LANG" =~ ^cs ]]; then
         cat << EOF
-$(basename "$0") - Spouští backup Turris routeru z Leo NAS
+$(basename "$0") - Spouští backup Turris routeru z NASu
 
 Použití:
     $(basename "$0") [volby]
@@ -17,7 +17,7 @@ Popis:
 EOF
     else
         cat << EOF
-$(basename "$0") - Triggers Turris router backup from Leo NAS
+$(basename "$0") - Triggers Turris router backup from the NAS
 
 Usage:
     $(basename "$0") [options]
@@ -32,7 +32,7 @@ EOF
     exit 0
 fi
 
-# Leo Trigger Script - starts backup on turris after leo startup
+# NAS trigger script - starts backup on turris after the NAS starts up
 # Runs max 2x per month
 
 LAST_BACKUP_FILE="/volume1/homes/tommyq/.turris-backup-last"

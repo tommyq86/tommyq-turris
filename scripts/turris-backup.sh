@@ -5,7 +5,7 @@
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     if echo "$LANG" | grep -q "^cs"; then
         cat << EOF
-$(basename "$0") - Zálohuje Turris router na Leo NAS
+$(basename "$0") - Zálohuje Turris router na NAS
 
 Použití:
     $(basename "$0") [volby]
@@ -19,7 +19,7 @@ Popis:
 EOF
     else
         cat << EOF
-$(basename "$0") - Backs up Turris router to Leo NAS
+$(basename "$0") - Backs up Turris router to the NAS
 
 Usage:
     $(basename "$0") [options]
@@ -40,13 +40,13 @@ DATE=$(date +%Y%m%d_%H%M%S)
 
 echo "=== Turris MOX Backup - $(date) ==="
 
-# Check leo availability
+# Check NAS availability
 if ! ssh -o ConnectTimeout=5 -o BatchMode=yes tommyq@leo "exit" 2>/dev/null; then
-  echo "WARNING: leo is not available"
+  echo "WARNING: NAS is not available"
   exit 1
 fi
 
-echo "Creating backup on leo..."
+echo "Creating backup on the NAS..."
 ssh tommyq@leo "mkdir -p ${BACKUP_DIR}/${DATE}"
 
 # System backup
@@ -62,7 +62,7 @@ echo "Backup: ssh..."
 tar czf - -C / root/.ssh 2>/dev/null | ssh tommyq@leo "cat > ${BACKUP_DIR}/${DATE}/ssh.tar.gz"
 
 # Assistant + sport (config, app data, logs) under /srv/tommyq. The map tiles
-# are NO LONGER here — they moved to the leo `maps` Docker service
+# are NO LONGER here — they moved to the NAS `maps` Docker service
 # (/volume1/docker/maps/store), so turris holds no tile store to back up. The
 # tar.gz keeps the 7-version rotation for everything small and valuable
 # (activity/data jízdy, planner/data routes-users-nogos, config/sport.conf,
@@ -73,10 +73,10 @@ echo "Backup: /srv/tommyq (excl. maps tiles)..."
 tar czf - -C / --exclude='srv/tommyq/sport/maps' srv/tommyq 2>/dev/null \
     | ssh tommyq@leo "cat > ${BACKUP_DIR}/${DATE}/srv-tommyq.tar.gz"
 
-# NB: the tile store is no longer backed up from turris — it lives on leo now
+# NB: the tile store is no longer backed up from turris — it lives on the NAS now
 # (the `maps` Docker service volume, /volume1/docker/maps/store) and is covered
-# by leo's own storage. Self-rendered layers (osm, cyclosm) are regenerable on
-# tiger (render-tiles-tiger.sh); the pre-fetched layers were migrated to leo
+# by the NAS's own storage. Self-rendered layers (osm, cyclosm) are regenerable on
+# the desktop (render-tiles.sh); the pre-fetched layers were migrated to the NAS
 # (scripts/migrate-tiles-to-leo.sh in tommyq-sport).
 
 # Clean up old DATED backups (keep last 7).
