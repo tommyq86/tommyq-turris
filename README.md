@@ -367,6 +367,12 @@ cd ~/Systém/tommyq-turris && ./deploy.sh
 ~/Systém/tommyq-turris/scripts/nas-trigger-turris-backup.sh
 ```
 
+The NAS login is **not in the repo**: `turris-backup.sh` reads `NAS_SSH` (`user@host` or an ssh alias) and an
+optional `BACKUP_DIR` (relative to that user's home, default `turris-backup`) from
+`/srv/tommyq/config/backup.conf`. Create `~/.tommyq/backup.conf` from `scripts/backup.conf.example`;
+`deploy.sh scripts` installs it on the router (before the scripts, and aborts if neither exists). The
+trigger script keeps its last-run stamp in `$HOME/.turris-backup-last` (override with `LAST_BACKUP_FILE`).
+
 ### Memory Monitoring
 
 ```bash

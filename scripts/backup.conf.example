@@ -1,0 +1,11 @@
+# Copy to ~/.tommyq/backup.conf (not in git). `deploy.sh scripts` installs it as
+# /srv/tommyq/config/backup.conf on the router, where turris-backup.sh reads it.
+# Plain shell `KEY=value` lines.
+
+# Required: where the backups are stored — user@host of the NAS, or an ssh alias.
+# The router's root key must be authorised there (passwordless ssh).
+NAS_SSH=backup-user@nas
+
+# Optional: backup directory on the NAS, relative to that user's home (default: turris-backup).
+# Keeps the last 7 dated backups inside it.
+#BACKUP_DIR=turris-backup

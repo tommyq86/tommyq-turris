@@ -49,6 +49,8 @@ Setup SmartHome assistant:
 
 ### Configuration Backup
 The script `scripts/turris-backup.sh` handles automated backups of `/etc` and other important paths.
+It needs `/srv/tommyq/config/backup.conf` on the router (`NAS_SSH=user@host`); create `~/.tommyq/backup.conf` from
+`scripts/backup.conf.example` and `deploy.sh scripts` installs it.
 
 ### Memory Monitoring
 `scripts/turris-mem-monitor.sh` monitors memory usage and restarts services if necessary.

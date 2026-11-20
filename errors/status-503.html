@@ -71,7 +71,7 @@
   var t0 = Date.now(), lastWake = 0;
   var lastStart = 0, starting = false, noStart = false, startTried = false;
   var STALL_AFTER = 3 * 60 * 1000;      // NAS up, service still silent → say so
-  var label = 'NAS';                    // display name; replaced by `label` from the CGI (nas_label)
+  var nasLabel = 'NAS';                 // display name of the NAS; replaced by `label` from the CGI (nas_label)
 
   // The NAS is up but the service is silent: ask the CGI to start it through Portainer.
   // 404 = not an on-demand service (nothing to start), 502 = Portainer not ready yet → retry.
@@ -91,7 +91,7 @@
   }
   function show(msg, nas, svc) {
     $('msg').textContent = msg;
-    setStep('stNas', nas, label);
+    setStep('stNas', nas, nasLabel);
     setStep('stSvc', svc, 'služba');
   }
 
@@ -116,24 +116,24 @@
       if (up) { show('Hotovo, načítám…', 'done', 'done'); location.reload(); return; }
       return wol('?status').catch(function () { return null; }).then(function (s) {
         var waited = Date.now() - t0;
-        if (s && s.label) label = s.label;
+        if (s && s.label) nasLabel = s.label;
         if (s && s.lan === false) {
           show('Služba je teď nedostupná. Zkouším to znovu…', 'pending', 'active');
         } else if (s && s.nas === false) {
-          show('💤 ' + label + ' spí nebo startuje — probouzím…', 'active', 'pending');
+          show('💤 ' + nasLabel + ' spí nebo startuje — probouzím…', 'active', 'pending');
           if (Date.now() - lastWake > 45000) {          // magic packets can get lost: repeat
             lastWake = Date.now();
             wol('?wake', { method: 'POST' }).catch(function () {});
           }
         } else if (s && s.nas) {
           startSvc();
-          show(starting ? label + ' běží, spouštím službu…' : label + ' běží, čekám na službu…', 'done', 'active');
+          show(starting ? nasLabel + ' běží, spouštím službu…' : nasLabel + ' běží, čekám na službu…', 'done', 'active');
           if (waited > STALL_AFTER) {
             $('spin').classList.add('stalled'); $('bar').classList.add('stalled');
             $('hint').hidden = false; $('retry').hidden = false;
             $('hint').textContent = startTried
               ? 'Službu jsem zkusil spustit, ale pořád neodpovídá — zkontroluj ji v Portaineru.'
-              : 'Služba pořád neodpovídá — pravděpodobně na ' + label + ' neběží. Zkusím to dál, ale může být potřeba ji spustit (Portainer).';
+              : 'Služba pořád neodpovídá — pravděpodobně na ' + nasLabel + ' neběží. Zkusím to dál, ale může být potřeba ji spustit (Portainer).';
           }
         } else {
           show('Čekám na službu…', 'pending', 'active');

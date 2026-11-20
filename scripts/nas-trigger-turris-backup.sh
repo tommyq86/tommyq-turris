@@ -35,7 +35,8 @@ fi
 # NAS trigger script - starts backup on turris after the NAS starts up
 # Runs max 2x per month
 
-LAST_BACKUP_FILE="/volume1/homes/tommyq/.turris-backup-last"
+# State file of the last successful backup (default: in the home of the user running this).
+LAST_BACKUP_FILE="${LAST_BACKUP_FILE:-$HOME/.turris-backup-last}"
 MIN_DAYS=14
 
 # Check when last backup occurred

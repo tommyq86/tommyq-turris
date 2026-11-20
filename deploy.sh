@@ -246,6 +246,20 @@ if has_component scripts; then
     echo "▸ Deploying scripts..."
     ensure_dir "/srv/tommyq/scripts/"
 
+    # turris-backup.sh reads the NAS login (NAS_SSH, optional BACKUP_DIR) from backup.conf on
+    # the router. Not in git: deployed from ~/.tommyq/backup.conf (see scripts/backup.conf.example).
+    # Done BEFORE the scripts so the new script never runs without its config.
+    ensure_dir "/srv/tommyq/config/"
+    if [ -f "$HOME/.tommyq/backup.conf" ]; then
+        scp_to "$HOME/.tommyq/backup.conf" "/srv/tommyq/config/backup.conf"
+        ssh_exec "chmod 600 /srv/tommyq/config/backup.conf"
+        echo "  backup.conf"
+    elif ! ssh_exec "test -f /srv/tommyq/config/backup.conf"; then
+        echo "  ✗ ~/.tommyq/backup.conf not found and none on the router — turris-backup.sh would fail" >&2
+        echo "    (copy scripts/backup.conf.example to ~/.tommyq/backup.conf and edit it)" >&2
+        exit 1
+    fi
+
     for script in "$SCRIPT_DIR/scripts"/*.sh; do
         filename=$(basename "$script")
 
